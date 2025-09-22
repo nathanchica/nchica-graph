@@ -16,9 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load all GraphQL schema files
-const schemaDirs = [path.join(__dirname, '.'), path.join(__dirname, '../schema')].filter((dir) =>
-    existsSync(dir)
-);
+const schemaDirs = [path.join(__dirname, '.'), path.join(__dirname, '../schema')].filter((dir) => existsSync(dir));
 
 if (schemaDirs.length === 0) {
     throw new Error('No GraphQL schema directory found. Make sure SDL files are available.');

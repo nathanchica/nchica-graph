@@ -13,7 +13,7 @@
         "lint": "eslint . --fix",
         "format": "prettier --write .",
         "test": "vitest",
-        "prepare": "husky install"
+        "prepare": "husky || true"
     },
     "lint-staged": {
         "**/*.{ts,tsx}": [
