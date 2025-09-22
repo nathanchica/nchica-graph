@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-import { GraphQLError, type ExecutionArgs } from 'graphql';
+import { GraphQLError, execute as graphqlExecute, subscribe as graphqlSubscribe, type ExecutionArgs } from 'graphql';
 import { useServer } from 'graphql-ws/use/ws';
 import { createYoga } from 'graphql-yoga';
 import { WebSocketServer } from 'ws';
@@ -9,6 +9,14 @@ import { WebSocketServer } from 'ws';
 import { createContext, type GraphQLContext } from './context.js';
 import { env } from './env.js';
 import { schema } from './schema/index.js';
+
+const YOGA_EXECUTE_SYMBOL = Symbol('yoga.execute');
+const YOGA_SUBSCRIBE_SYMBOL = Symbol('yoga.subscribe');
+
+type YogaRootValue = {
+    [YOGA_EXECUTE_SYMBOL]: typeof graphqlExecute;
+    [YOGA_SUBSCRIBE_SYMBOL]: typeof graphqlSubscribe;
+};
 
 const yoga = createYoga<GraphQLContext>({
     schema,
@@ -26,6 +34,16 @@ const wsServer = new WebSocketServer({
 
 const wsServerCleanup = useServer(
     {
+        execute: async (args) => {
+            const rootValue = args.rootValue as Partial<YogaRootValue> | undefined;
+            const yogaExecute = rootValue?.[YOGA_EXECUTE_SYMBOL];
+            return yogaExecute ? yogaExecute(args) : graphqlExecute(args);
+        },
+        subscribe: async (args) => {
+            const rootValue = args.rootValue as Partial<YogaRootValue> | undefined;
+            const yogaSubscribe = rootValue?.[YOGA_SUBSCRIBE_SYMBOL];
+            return yogaSubscribe ? yogaSubscribe(args) : graphqlSubscribe(args);
+        },
         onSubscribe: async (ctx, _id, payload) => {
             const { schema, execute, subscribe, contextFactory, parse, validate } = yoga.getEnveloped({
                 ...ctx,
@@ -39,6 +57,10 @@ const wsServerCleanup = useServer(
             }
 
             const document = typeof payload.query === 'string' ? parse(payload.query) : payload.query;
+            const rootValue: YogaRootValue = {
+                [YOGA_EXECUTE_SYMBOL]: execute,
+                [YOGA_SUBSCRIBE_SYMBOL]: subscribe,
+            };
 
             const executionArgs: ExecutionArgs = {
                 schema,
@@ -46,10 +68,7 @@ const wsServerCleanup = useServer(
                 document,
                 variableValues: payload.variables,
                 contextValue: await contextFactory(),
-                rootValue: {
-                    execute,
-                    subscribe,
-                },
+                rootValue,
             };
 
             const errors = validate(schema, executionArgs.document);
@@ -71,8 +90,9 @@ const shutdown = async () => {
 };
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-    process.on(signal, () => {
-        void shutdown();
+    process.on(signal, async () => {
+        await shutdown();
+        process.exit(0);
     });
 }
 
