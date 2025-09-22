@@ -9,7 +9,7 @@ export const rootResolvers = {
         heartbeat: {
             subscribe: async function* heartbeatGenerator() {
                 while (true) {
-                    yield { heartbeat: new Date().toISOString() };
+                    yield { heartbeat: new Date() };
                     await new Promise((resolve) => setTimeout(resolve, 1000));
                 }
             },
