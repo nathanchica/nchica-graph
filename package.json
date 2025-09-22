@@ -1,0 +1,73 @@
+{
+    "name": "nchica-graph",
+    "version": "0.1.0",
+    "description": "Unified GraphQL Yoga server merging multiple internal services into a single schema and Render deployment.",
+    "type": "module",
+    "main": "dist/server.js",
+    "types": "dist/server.d.ts",
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc --project tsconfig.json",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint . --fix",
+        "format": "prettier --write .",
+        "test": "vitest",
+        "prepare": "husky || true"
+    },
+    "lint-staged": {
+        "**/*.{ts,tsx}": [
+            "prettier --write",
+            "eslint --fix --max-warnings=0 --no-warn-ignored",
+            "tsc-files --noEmit"
+        ],
+        "**/*.{js,jsx}": [
+            "prettier --write",
+            "eslint --fix --max-warnings=0 --no-warn-ignored"
+        ],
+        "**/*.{css,md,json,yml,yaml}": [
+            "prettier --write"
+        ]
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nathanchica/nchica-graph.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/nathanchica/nchica-graph/issues"
+    },
+    "homepage": "https://github.com/nathanchica/nchica-graph#readme",
+    "dependencies": {
+        "@graphql-tools/load-files": "^7.0.1",
+        "@graphql-tools/merge": "^9.1.1",
+        "@graphql-tools/schema": "^10.0.25",
+        "graphql": "^16.11.0",
+        "graphql-scalars": "^1.24.2",
+        "graphql-ws": "^6.0.6",
+        "graphql-yoga": "^5.16.0",
+        "ws": "^8.18.3",
+        "zod": "^4.1.11"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.36.0",
+        "@graphql-eslint/eslint-plugin": "^4.4.0",
+        "@types/node": "^24.5.2",
+        "@types/ws": "^8.18.1",
+        "@typescript-eslint/eslint-plugin": "^8.44.0",
+        "@typescript-eslint/parser": "^8.44.0",
+        "eslint": "^9.36.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-import": "^2.32.0",
+        "eslint-plugin-react-hooks": "^5.2.0",
+        "husky": "^9.1.7",
+        "lint-staged": "^16.2.0",
+        "prettier": "^3.6.2",
+        "tsc-files": "^1.1.4",
+        "tsx": "^4.20.5",
+        "typescript": "^5.9.2",
+        "vitest": "^3.2.4"
+    }
+}

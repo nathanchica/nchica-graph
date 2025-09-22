@@ -1,0 +1,31 @@
+export const rootTypeDefs = /* GraphQL */ `
+    """
+    ISO 8601 DateTime scalar type
+    """
+    scalar DateTime
+
+    """
+    Root query type
+    """
+    type Query {
+        """
+        Health check endpoint
+        """
+        health: String!
+
+        """
+        Current server version
+        """
+        serverVersion: String!
+    }
+
+    """
+    Root subscription type for real-time updates
+    """
+    type Subscription {
+        """
+        Heartbeat subscription that emits current timestamp every second
+        """
+        heartbeat: DateTime!
+    }
+`;
