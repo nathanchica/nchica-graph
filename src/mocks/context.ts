@@ -15,6 +15,9 @@ export const createMockContext = (overrides?: Partial<GraphQLContext>): GraphQLC
         NODE_ENV: 'test' as const,
         HOST: 'localhost',
         PORT: 4000,
+        ENABLE_CACHE: true,
+        REDIS_URL: undefined,
+        CACHE_CLEANUP_THRESHOLD: 100,
     };
 
     return {
