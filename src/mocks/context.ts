@@ -1,3 +1,5 @@
+import { createMockEnv } from './env.js';
+
 import type { GraphQLContext } from '../context.js';
 
 export const createMockContext = (overrides?: Partial<GraphQLContext>): GraphQLContext => {
@@ -11,15 +13,9 @@ export const createMockContext = (overrides?: Partial<GraphQLContext>): GraphQLC
         }),
     });
 
-    const mockEnv = {
-        NODE_ENV: 'test' as const,
-        HOST: 'localhost',
-        PORT: 4000,
-    };
-
     return {
         request: defaultRequest,
-        env: mockEnv,
+        env: createMockEnv(),
         ...overrides,
     };
 };

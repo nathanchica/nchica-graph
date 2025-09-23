@@ -52,6 +52,7 @@
         "graphql-scalars": "^1.24.2",
         "graphql-ws": "^6.0.6",
         "graphql-yoga": "^5.16.0",
+        "ioredis": "^5.7.0",
         "ws": "^8.18.3",
         "zod": "^4.1.11"
     },
