@@ -1,7 +1,23 @@
 import fetch from 'node-fetch';
 
-import { env } from '../env.js';
 import { getCachedOrFetch } from '../utils/cache.js';
+
+export type ActRealtimeServiceDependencies = {
+    /* Fetch function for making API calls */
+    fetch: typeof fetch;
+    /* Token for AC Transit API access */
+    apiToken: string;
+    /* Base URL for AC Transit API */
+    apiBaseUrl: string;
+    /* Cache TTL settings for different data types */
+    cacheTtl: {
+        busStopProfiles: number;
+        predictions: number;
+        vehiclePositions: number;
+    };
+    /* Caching utility function */
+    getCachedOrFetch: typeof getCachedOrFetch;
+};
 
 export type BusStopProfileRaw = {
     stpid: string; // stop code (5-digit)
@@ -14,7 +30,7 @@ export type BusStopProfileRaw = {
 /**
  * Response type for GET actrealtime/stop?rt={rt}&dir={dir}&stpid={stpid}&callback={callback}
  */
-type BusStopApiResponse = {
+export type BusStopApiResponse = {
     'bustime-response': {
         stops: Array<BusStopProfileRaw>;
     };
@@ -41,13 +57,13 @@ export type BusStopPredictionRaw = {
 /**
  * Response type for GET actrealtime/prediction?stpid={stpid}&rt={rt}&vid={vid}&top={top}&tmres={tmres}&callback={callback}&showocprd={showocprd}
  */
-type BusStopPredictionsResponse = {
+export type BusStopPredictionsResponse = {
     'bustime-response': {
         prd: Array<BusStopPredictionRaw>; // Raw prediction objects from ACT API
     };
 };
 
-type SystemTimeResponse = {
+export type SystemTimeResponse = {
     'bustime-response'?: {
         tm?: string;
     };
@@ -81,7 +97,7 @@ export type BusPositionRaw = {
 /**
  * Response type for GET actrealtime/vehicle?vid={vid}&rt={rt}&tmres={tmres}&callback={callback}&lat={lat}&lng={lng}&searchRadius={searchRadius}
  */
-type VehiclePositionsResponse = {
+export type VehiclePositionsResponse = {
     'bustime-response'?: {
         vehicle?: Array<BusPositionRaw>;
     };
@@ -95,14 +111,25 @@ type VehiclePositionsResponse = {
 class ACTRealtimeService {
     private readonly baseUrl: string;
     private readonly token: string;
+    private readonly fetch: typeof fetch;
+    private readonly cacheTtl: {
+        busStopProfiles: number;
+        predictions: number;
+        vehiclePositions: number;
+    };
+    private readonly getCachedOrFetch: typeof getCachedOrFetch;
+
     private readonly busStopProfilePath = '/stop';
     private readonly busStopPredictionsPath = '/prediction';
     private readonly vehiclePositionsPath = '/vehicle';
     private readonly systemTimePath = '/time';
 
-    constructor() {
-        this.baseUrl = env.ACT_REALTIME_API_BASE_URL;
-        this.token = env.AC_TRANSIT_TOKEN;
+    constructor({ fetch, apiToken, apiBaseUrl, cacheTtl, getCachedOrFetch }: ActRealtimeServiceDependencies) {
+        this.baseUrl = apiBaseUrl;
+        this.token = apiToken;
+        this.fetch = fetch;
+        this.cacheTtl = cacheTtl;
+        this.getCachedOrFetch = getCachedOrFetch;
     }
 
     /**
@@ -151,7 +178,7 @@ class ACTRealtimeService {
             const params = { stpid: stopCodes.join(',') };
             const finalUrl = this.buildUrl(url, params);
 
-            const response = await fetch(finalUrl, {
+            const response = await this.fetch(finalUrl, {
                 headers: {
                     Accept: 'application/json',
                 },
@@ -218,10 +245,10 @@ class ACTRealtimeService {
             const cacheKey = `bus-stop-profiles:${chunk.sort().join(',')}`;
 
             try {
-                const chunkMap = await getCachedOrFetch(
+                const chunkMap = await this.getCachedOrFetch(
                     cacheKey,
                     () => this.fetchBusStopProfilesRaw(chunk),
-                    env.WHERE_IS_51B_CACHE_TTL_BUS_STOP_PROFILES
+                    this.cacheTtl.busStopProfiles
                 );
 
                 // Merge results into main map using forEach
@@ -268,7 +295,7 @@ class ACTRealtimeService {
             const params = { stpid: stopCodes.join(',') };
             const finalUrl = this.buildUrl(url, params);
 
-            const response = await fetch(finalUrl, {
+            const response = await this.fetch(finalUrl, {
                 headers: {
                     Accept: 'application/json',
                 },
@@ -324,10 +351,10 @@ class ACTRealtimeService {
             const cacheKey = `bus-stop-predictions:${chunk.sort().join(',')}`;
 
             try {
-                const chunkMap = await getCachedOrFetch(
+                const chunkMap = await this.getCachedOrFetch(
                     cacheKey,
                     () => this.fetchBusStopPredictionsRaw(chunk),
-                    env.WHERE_IS_51B_CACHE_TTL_PREDICTIONS
+                    this.cacheTtl.predictions
                 );
 
                 // Merge results into main map
@@ -349,7 +376,7 @@ class ACTRealtimeService {
         const url = `${this.baseUrl}${this.systemTimePath}`;
         const finalUrl = this.buildUrl(url, { unixTime: 'true' });
 
-        const response = await fetch(finalUrl, {
+        const response = await this.fetch(finalUrl, {
             headers: {
                 Accept: 'application/json',
             },
@@ -385,7 +412,7 @@ class ACTRealtimeService {
             const url = `${this.baseUrl}${this.vehiclePositionsPath}`;
             const finalUrl = this.buildUrl(url, routeId ? { rt: routeId } : undefined);
 
-            const response = await fetch(finalUrl, {
+            const response = await this.fetch(finalUrl, {
                 headers: {
                     Accept: 'application/json',
                 },
@@ -421,17 +448,15 @@ class ACTRealtimeService {
     async fetchVehiclePositions(routeId?: string): Promise<Array<BusPositionRaw>> {
         const cacheKey = `vehicle-positions:${routeId ?? 'all'}`;
 
-        return getCachedOrFetch(
+        return this.getCachedOrFetch(
             cacheKey,
             () => this.fetchBusPositionsRaw(routeId),
-            env.WHERE_IS_51B_CACHE_TTL_VEHICLE_POSITIONS
+            this.cacheTtl.vehiclePositions
         );
     }
 }
 
-// Export singleton instance
-const actRealtimeService = new ACTRealtimeService();
+export type ACTRealtimeServiceType = ACTRealtimeService;
 
-export type ACTRealtimeServiceType = typeof actRealtimeService;
-
-export default actRealtimeService;
+export const createACTRealtimeService = (deps: ActRealtimeServiceDependencies): ACTRealtimeServiceType =>
+    new ACTRealtimeService(deps);
