@@ -101,6 +101,7 @@ export default [
             '**/*.config.ts',
             '**/vite.config.ts',
             '.husky/**',
+            '**/generated/**',
         ],
     },
 
