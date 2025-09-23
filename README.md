@@ -9,6 +9,9 @@ Unified GraphQL Yoga server merging multiple internal services into a single sch
 - Zod for runtime validation of environment configuration and client inputs
 - Vitest for unit and integration tests
 - Husky + lint-staged running ESLint, Prettier, and TypeScript type checks on staged files
+- graphql-codegen for generating TypeScript types based off schema
+- ioredis for caching with local in-memory cache support as well
+- graphql-ws for websocket server
 
 ## Getting Started
 
@@ -31,6 +34,16 @@ Unified GraphQL Yoga server merging multiple internal services into a single sch
 
 ## Workflow Notes
 
-- Husky enforces the `pre-commit` hook; lint-staged limits ESLint, Prettier, and type checking to staged files.
+- Husky enforces the `pre-commit` hook; lint-staged limits ESLint, Prettier, and type checking to staged files. Will also automatically run codegen if schema files are staged.
 - Use Zod schemas to guard any new resolver inputs or configuration before exposing them to the merged graph.
-- Goal: consolidate all previous GraphQL service schemas here and deploy only this service to Render.
+- When fetching from external services, use HybridCache (src/utils/cache.ts) for caching the fetched values either in-memory or in a redis server.
+- Use mock factories for Yoga client, context, and env vars in src/mocks for tests
+
+#### New schema types and resolvers
+
+- Create new directory under `src/schema`
+- Create schema (typeDefs) in `src/schema/new-type-name/new-type-name.schema.ts`
+- Create resolvers in `src/schema/new-type-name/new-type-name.resolvers.ts`
+- Create index file to export schema and resolvers in `src/schema/new-type-name/index.ts`
+- Import new schema and resolvers in `src/schema/index.ts`
+- Run codegen `pnpm codegen` to generate types
