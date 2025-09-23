@@ -34,7 +34,7 @@ class HybridCache {
             console.log('📦 Using in-memory cache (Redis not configured)');
         }
 
-        this.cleanupThreshold = env.CACHE_CLEANUP_THRESHOLD || 100;
+        this.cleanupThreshold = env.CACHE_CLEANUP_THRESHOLD ?? 100;
     }
 
     private initRedis(url: string) {
