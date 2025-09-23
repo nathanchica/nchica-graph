@@ -1,6 +1,4 @@
-import { TextDecoder } from 'node:util';
-
-import { getOperationAST, parse } from 'graphql';
+import { getOperationAST } from 'graphql';
 import { createYoga, maskError as defaultMaskError } from 'graphql-yoga';
 
 import { createMockContext } from './context.js';
@@ -9,179 +7,205 @@ import type { GraphQLContext } from '../context.js';
 import { schema } from '../schema/index.js';
 import { isGraphQLError } from '../utils/error.js';
 
-export interface TestRequestOptions {
-    subscription?: {
-        take?: number;
-    };
+export interface SubscriptionCollectOptions {
+    take?: number;
 }
 
 export type GraphQLExecutionResult<TData = unknown> = {
     data?: TData;
     errors?: unknown;
+    extensions?: unknown;
+    hasNext?: boolean;
+    incremental?: unknown;
 };
 
 export type GraphQLSubscriptionResults<TData = unknown> = GraphQLExecutionResult<TData>[];
 
-type GraphQLSSEEnvelope<TData = unknown> = {
-    id?: string;
-    type?: string;
-    payload?: GraphQLExecutionResult<TData> | null;
+const isAsyncIterable = <TValue>(value: unknown): value is AsyncIterable<TValue> => {
+    return typeof (value as AsyncIterable<TValue>)?.[Symbol.asyncIterator] === 'function';
 };
 
 export interface TestGraphQLClient {
-    request: (
+    request: <TData = unknown>(
+        operation: string,
+        variables?: Record<string, unknown>,
+        contextOverrides?: Partial<GraphQLContext>
+    ) => Promise<GraphQLExecutionResult<TData>>;
+    collectSubscription: <TData = unknown>(
         operation: string,
         variables?: Record<string, unknown>,
         contextOverrides?: Partial<GraphQLContext>,
-        options?: TestRequestOptions
-    ) => Promise<GraphQLExecutionResult | GraphQLSubscriptionResults>;
+        options?: SubscriptionCollectOptions
+    ) => Promise<GraphQLSubscriptionResults<TData>>;
 }
 
 export const createTestClient = (): TestGraphQLClient => {
-    const parseOperationType = (operation: string): 'query' | 'mutation' | 'subscription' => {
+    let pendingContextOverrides: Partial<GraphQLContext> | undefined;
+
+    const yoga = createYoga<GraphQLContext>({
+        schema,
+        context: () => createMockContext(pendingContextOverrides),
+        maskedErrors: {
+            maskError(error, message, isDev) {
+                if (isGraphQLError(error)) {
+                    return error;
+                }
+
+                return defaultMaskError(error, message, isDev);
+            },
+        },
+    });
+
+    const createEnvelopedExecution = () => {
+        const request = new Request('http://localhost:4000/graphql', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        return yoga.getEnveloped({
+            request,
+        });
+    };
+
+    // Mirror HTTP serialization so scalars (e.g., Date) arrive as JSON-safe primitives.
+    const normalizeResult = <TData>(result: GraphQLExecutionResult<TData>) => {
+        return JSON.parse(JSON.stringify(result)) as GraphQLExecutionResult<TData>;
+    };
+
+    const prepareOperation = async (operation: string, contextOverrides?: Partial<GraphQLContext>) => {
+        const enveloped = createEnvelopedExecution();
+        const { schema, execute, subscribe, parse: parseDocument, contextFactory } = enveloped;
+
         try {
-            const document = parse(operation);
+            pendingContextOverrides = contextOverrides;
+            const document = parseDocument(operation);
             const operationAST = getOperationAST(document, undefined);
-            return operationAST?.operation ?? 'query';
-        } catch {
-            return 'query';
+            const operationType = operationAST?.operation ?? 'query';
+            const baseContext = await contextFactory();
+            const contextValue = {
+                ...baseContext,
+                ...contextOverrides,
+            } as GraphQLContext;
+
+            return {
+                schema,
+                execute,
+                subscribe,
+                document,
+                contextValue,
+                operationType,
+            };
+        } finally {
+            pendingContextOverrides = undefined;
         }
     };
 
-    const readSSEPayloads = async <TData>(
-        response: Response,
-        take: number
-    ): Promise<GraphQLSubscriptionResults<TData>> => {
-        const body = response.body;
-        if (!body) {
-            throw new Error('SSE response missing body');
+    const request = async <TData = unknown>(
+        operation: string,
+        variables?: Record<string, unknown>,
+        contextOverrides?: Partial<GraphQLContext>
+    ): Promise<GraphQLExecutionResult<TData>> => {
+        const { schema, execute, subscribe, document, contextValue, operationType } = await prepareOperation(
+            operation,
+            contextOverrides
+        );
+
+        const variableValues = variables ?? undefined;
+
+        if (operationType === 'subscription') {
+            const result = await subscribe({
+                schema,
+                document,
+                variableValues,
+                contextValue,
+            });
+
+            if (!isAsyncIterable<GraphQLExecutionResult<TData>>(result)) {
+                return normalizeResult(result as GraphQLExecutionResult<TData>);
+            }
+
+            const iterator = result[Symbol.asyncIterator]();
+
+            try {
+                const { value, done } = await iterator.next();
+                if (done || !value) {
+                    throw new Error('Subscription completed before yielding a payload');
+                }
+
+                return normalizeResult(value as GraphQLExecutionResult<TData>);
+            } finally {
+                await iterator.return?.();
+            }
         }
 
-        const reader = body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
+        const executionResult = await execute({
+            schema,
+            document,
+            variableValues,
+            contextValue,
+        });
+
+        return normalizeResult(executionResult as GraphQLExecutionResult<TData>);
+    };
+
+    const collectSubscription = async <TData = unknown>(
+        operation: string,
+        variables?: Record<string, unknown>,
+        contextOverrides?: Partial<GraphQLContext>,
+        options?: SubscriptionCollectOptions
+    ): Promise<GraphQLSubscriptionResults<TData>> => {
+        const { schema, subscribe, document, contextValue, operationType } = await prepareOperation(
+            operation,
+            contextOverrides
+        );
+
+        if (operationType !== 'subscription') {
+            throw new Error('collectSubscription can only be used with subscription operations');
+        }
+
+        const result = await subscribe({
+            schema,
+            document,
+            variableValues: variables ?? undefined,
+            contextValue,
+        });
+
         const events: GraphQLSubscriptionResults<TData> = [];
 
+        if (!isAsyncIterable<GraphQLExecutionResult<TData>>(result)) {
+            events.push(normalizeResult(result as GraphQLExecutionResult<TData>));
+            return events;
+        }
+
+        const iterator = result[Symbol.asyncIterator]();
+        const take = Math.max(1, options?.take ?? 1);
+
         try {
-            while (true) {
-                const { value, done } = await reader.read();
+            while (events.length < take) {
+                const { value, done } = await iterator.next();
                 if (done) {
                     break;
                 }
 
-                buffer += decoder.decode(value, { stream: true });
-
-                let eventBoundary = buffer.indexOf('\n\n');
-                while (eventBoundary !== -1) {
-                    const rawEvent = buffer.slice(0, eventBoundary);
-                    buffer = buffer.slice(eventBoundary + 2);
-                    eventBoundary = buffer.indexOf('\n\n');
-
-                    const payloads = rawEvent.split('\n').reduce<string[]>((acc, line) => {
-                        const trimmed = line.trim();
-                        if (!trimmed.startsWith('data:')) {
-                            return acc;
-                        }
-
-                        const value = trimmed.slice('data:'.length).trim();
-                        if (value.length > 0) {
-                            acc.push(value);
-                        }
-
-                        return acc;
-                    }, []);
-
-                    const reachedLimit = payloads.some((payloadJson) => {
-                        const parsed = JSON.parse(payloadJson) as
-                            | GraphQLSSEEnvelope<TData>
-                            | GraphQLExecutionResult<TData>;
-
-                        if ('payload' in parsed) {
-                            const payload = parsed.payload;
-                            if (!payload) {
-                                return false;
-                            }
-
-                            events.push({
-                                data: payload.data,
-                                errors: payload.errors,
-                            });
-                        } else if ('data' in parsed || 'errors' in parsed) {
-                            events.push({
-                                data: parsed.data,
-                                errors: parsed.errors,
-                            });
-                        } else {
-                            return false;
-                        }
-
-                        return events.length >= take;
-                    });
-
-                    if (reachedLimit) {
-                        return events;
-                    }
+                if (value) {
+                    events.push(normalizeResult(value as GraphQLExecutionResult<TData>));
                 }
             }
         } finally {
-            reader.cancel().catch(() => {
-                // ignore cancellation errors
-            });
+            await iterator.return?.();
         }
 
         if (events.length === 0) {
-            throw new Error('SSE stream completed before yielding a payload');
+            throw new Error('Subscription completed before yielding a payload');
         }
 
         return events;
     };
 
-    const request = async (
-        operation: string,
-        variables?: Record<string, unknown>,
-        contextOverrides?: Partial<GraphQLContext>,
-        options?: TestRequestOptions
-    ) => {
-        const operationType = parseOperationType(operation);
-        const yoga = createYoga({
-            schema,
-            context: () => createMockContext(contextOverrides),
-            maskedErrors: {
-                maskError(error, message, isDev) {
-                    // Use our utility function to check for GraphQLError
-                    // This handles module boundary issues in tests
-                    if (isGraphQLError(error)) {
-                        return error;
-                    }
-
-                    // Mask all other errors, mimicking production behavior
-                    return defaultMaskError(error, message, isDev);
-                },
-            },
-        });
-
-        const response = await yoga.fetch('http://localhost:4000/graphql', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(operationType === 'subscription' ? { Accept: 'text/event-stream' } : {}),
-            },
-            body: JSON.stringify({
-                query: operation,
-                variables: variables ?? undefined,
-            }),
-        });
-
-        if (operationType === 'subscription') {
-            const take = Math.max(1, options?.subscription?.take ?? 1);
-            const events = await readSSEPayloads(response, take);
-            return take === 1 ? events[0] : events;
-        }
-
-        return response.json();
-    };
-
     return {
         request,
+        collectSubscription,
     };
 };

@@ -1,9 +1,4 @@
-import {
-    createTestClient,
-    type GraphQLExecutionResult,
-    type GraphQLSubscriptionResults,
-    type TestGraphQLClient,
-} from '../../../mocks/client.js';
+import { createTestClient, type TestGraphQLClient } from '../../../mocks/client.js';
 
 describe('rootResolvers', () => {
     let client: TestGraphQLClient;
@@ -21,7 +16,7 @@ describe('rootResolvers', () => {
         `;
         type ResultType = { health: string; serverVersion: string };
 
-        const result = (await client.request(query)) as GraphQLExecutionResult<ResultType>;
+        const result = await client.request<ResultType>(query);
 
         expect(result.errors).toBeUndefined();
         expect(result.data).toEqual({
@@ -46,9 +41,7 @@ describe('rootResolvers', () => {
         vi.useFakeTimers();
         vi.setSystemTime(mockDate);
 
-        const subscriptionPromise = client.request(query, undefined, undefined, {
-            subscription: { take: 2 },
-        }) as Promise<GraphQLSubscriptionResults<ResultType>>;
+        const subscriptionPromise = client.collectSubscription<ResultType>(query, undefined, undefined, { take: 2 });
 
         await vi.advanceTimersByTimeAsync(2000);
 
