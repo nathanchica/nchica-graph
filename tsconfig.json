@@ -7,7 +7,7 @@
         "strict": true,
         "outDir": "dist",
         "rootDir": "src",
-        "types": ["node"],
+        "types": ["node", "vitest", "vitest/globals"],
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
         "skipLibCheck": true,

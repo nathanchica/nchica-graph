@@ -6,6 +6,46 @@ import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import importPlugin from 'eslint-plugin-import';
 import prettierConfig from 'eslint-config-prettier';
 
+const baseGlobals = {
+    console: 'readonly',
+    process: 'readonly',
+    Buffer: 'readonly',
+    __dirname: 'readonly',
+    __filename: 'readonly',
+    exports: 'writable',
+    module: 'writable',
+    require: 'readonly',
+    global: 'readonly',
+    document: 'readonly',
+    window: 'readonly',
+    navigator: 'readonly',
+    fetch: 'readonly',
+    URL: 'readonly',
+    URLSearchParams: 'readonly',
+    RequestInit: 'readonly',
+    Response: 'readonly',
+    Request: 'readonly',
+    Headers: 'readonly',
+    setTimeout: 'readonly',
+    clearTimeout: 'readonly',
+    setInterval: 'readonly',
+    clearInterval: 'readonly',
+    NodeJS: 'readonly',
+};
+
+const vitestGlobals = {
+    ...baseGlobals,
+    afterAll: 'readonly',
+    afterEach: 'readonly',
+    beforeAll: 'readonly',
+    beforeEach: 'readonly',
+    describe: 'readonly',
+    expect: 'readonly',
+    it: 'readonly',
+    test: 'readonly',
+    vi: 'readonly',
+};
+
 const graphqlSchemaRules = {
     '@graphql-eslint/known-type-names': 'error',
     '@graphql-eslint/no-duplicate-fields': 'error',
@@ -92,34 +132,7 @@ export default [
                 sourceType: 'module',
                 ecmaFeatures: { jsx: true },
             },
-            globals: {
-                console: 'readonly',
-                process: 'readonly',
-                Buffer: 'readonly',
-                __dirname: 'readonly',
-                __filename: 'readonly',
-                exports: 'writable',
-                module: 'writable',
-                require: 'readonly',
-                global: 'readonly',
-                document: 'readonly',
-                window: 'readonly',
-                navigator: 'readonly',
-                fetch: 'readonly',
-                URL: 'readonly',
-                URLSearchParams: 'readonly',
-                RequestInit: 'readonly',
-                Response: 'readonly',
-                Request: 'readonly',
-                Headers: 'readonly',
-                // Timer functions
-                setTimeout: 'readonly',
-                clearTimeout: 'readonly',
-                setInterval: 'readonly',
-                clearInterval: 'readonly',
-                // Node.js types
-                NodeJS: 'readonly',
-            },
+            globals: baseGlobals,
         },
         plugins: {
             '@typescript-eslint': tseslint,
@@ -156,6 +169,13 @@ export default [
         },
         settings: {
             react: { version: 'detect' },
+        },
+    },
+
+    {
+        files: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}', '**/__tests__/**/*.ts', '**/__tests__/**/*.tsx'],
+        languageOptions: {
+            globals: vitestGlobals,
         },
     },
 ];
