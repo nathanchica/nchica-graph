@@ -20,5 +20,6 @@ export default defineConfig({
                 'graphql.config.js',
             ],
         },
+        setupFiles: ['./src/testSetup.ts'],
     },
 });
