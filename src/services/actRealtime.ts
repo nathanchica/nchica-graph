@@ -1,10 +1,9 @@
-import fetch from 'node-fetch';
-
 import { getCachedOrFetch } from '../utils/cache.js';
+import { type FetchWithUrlParams } from '../utils/fetch.js';
 
 export type ActRealtimeServiceDependencies = {
     /* Fetch function for making API calls */
-    fetch: typeof fetch;
+    fetchWithUrlParams: FetchWithUrlParams;
     /* Token for AC Transit API access */
     apiToken: string;
     /* Base URL for AC Transit API */
@@ -111,7 +110,7 @@ export type VehiclePositionsResponse = {
 class ACTRealtimeService {
     private readonly baseUrl: string;
     private readonly token: string;
-    private readonly fetch: typeof fetch;
+    private readonly fetchWithUrlParams: FetchWithUrlParams;
     private readonly cacheTtl: {
         busStopProfiles: number;
         predictions: number;
@@ -124,32 +123,18 @@ class ACTRealtimeService {
     private readonly vehiclePositionsPath = '/vehicle';
     private readonly systemTimePath = '/time';
 
-    constructor({ fetch, apiToken, apiBaseUrl, cacheTtl, getCachedOrFetch }: ActRealtimeServiceDependencies) {
+    constructor({
+        fetchWithUrlParams,
+        apiToken,
+        apiBaseUrl,
+        cacheTtl,
+        getCachedOrFetch,
+    }: ActRealtimeServiceDependencies) {
         this.baseUrl = apiBaseUrl;
         this.token = apiToken;
-        this.fetch = fetch;
+        this.fetchWithUrlParams = fetchWithUrlParams;
         this.cacheTtl = cacheTtl;
         this.getCachedOrFetch = getCachedOrFetch;
-    }
-
-    /**
-     * Build URL with token and optional additional parameters
-     * @param baseUrl The base URL to build from
-     * @param params Optional additional query parameters
-     */
-    private buildUrl(baseUrl: string, params?: Record<string, string>): string {
-        const url = new URL(baseUrl);
-
-        // Add any additional parameters
-        if (params) {
-            Object.entries(params).forEach(([key, value]) => {
-                url.searchParams.set(key, value);
-            });
-        }
-
-        url.searchParams.set('token', this.token);
-
-        return url.toString();
     }
 
     /**
@@ -170,14 +155,13 @@ class ACTRealtimeService {
         }
 
         try {
-            // Join stop codes with comma for batch request
-            const url = `${this.baseUrl}${this.busStopProfilePath}`;
-            const params = { stpid: stopCodes.join(',') };
-            const finalUrl = this.buildUrl(url, params);
-
-            const response = await this.fetch(finalUrl, {
-                headers: {
-                    Accept: 'application/json',
+            const response = await this.fetchWithUrlParams({
+                url: `${this.baseUrl}${this.busStopProfilePath}`,
+                params: { stpid: stopCodes.join(','), token: this.token },
+                requestInit: {
+                    headers: {
+                        Accept: 'application/json',
+                    },
                 },
             });
 
@@ -290,15 +274,14 @@ class ACTRealtimeService {
         }
 
         try {
-            // Join stop codes with comma for batch request
             // Note: AC Transit confusingly calls stop_code "stpid"
-            const url = `${this.baseUrl}${this.busStopPredictionsPath}`;
-            const params = { stpid: stopCodes.join(',') };
-            const finalUrl = this.buildUrl(url, params);
-
-            const response = await this.fetch(finalUrl, {
-                headers: {
-                    Accept: 'application/json',
+            const response = await this.fetchWithUrlParams({
+                url: `${this.baseUrl}${this.busStopPredictionsPath}`,
+                params: { stpid: stopCodes.join(','), token: this.token },
+                requestInit: {
+                    headers: {
+                        Accept: 'application/json',
+                    },
                 },
             });
 
@@ -378,12 +361,13 @@ class ACTRealtimeService {
      * Fetch the current AC Transit system time without caching
      */
     async fetchSystemTime(): Promise<Date> {
-        const url = `${this.baseUrl}${this.systemTimePath}`;
-        const finalUrl = this.buildUrl(url, { unixTime: 'true' });
-
-        const response = await this.fetch(finalUrl, {
-            headers: {
-                Accept: 'application/json',
+        const response = await this.fetchWithUrlParams({
+            url: `${this.baseUrl}${this.systemTimePath}`,
+            params: { unixTime: 'true', token: this.token },
+            requestInit: {
+                headers: {
+                    Accept: 'application/json',
+                },
             },
         });
 
@@ -414,12 +398,16 @@ class ACTRealtimeService {
      */
     private async fetchBusPositionsRaw(routeId?: string): Promise<Array<BusPositionRaw>> {
         try {
-            const url = `${this.baseUrl}${this.vehiclePositionsPath}`;
-            const finalUrl = this.buildUrl(url, routeId ? { rt: routeId } : undefined);
-
-            const response = await this.fetch(finalUrl, {
-                headers: {
-                    Accept: 'application/json',
+            const response = await this.fetchWithUrlParams({
+                url: `${this.baseUrl}${this.vehiclePositionsPath}`,
+                params: {
+                    ...(routeId ? { rt: routeId } : {}),
+                    token: this.token,
+                },
+                requestInit: {
+                    headers: {
+                        Accept: 'application/json',
+                    },
                 },
             });
 

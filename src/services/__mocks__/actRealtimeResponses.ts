@@ -11,7 +11,7 @@ import type {
 export const createMockBusStopProfileRaw = (overrides?: Partial<BusStopProfileRaw>): BusStopProfileRaw => ({
     stpid: '50373',
     stpnm: 'Broadway & 20th St',
-    geoid: '50373',
+    geoid: '123',
     lat: 37.811845,
     lon: -122.267098,
     ...overrides,
