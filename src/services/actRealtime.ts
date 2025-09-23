@@ -140,11 +140,6 @@ class ACTRealtimeService {
     private buildUrl(baseUrl: string, params?: Record<string, string>): string {
         const url = new URL(baseUrl);
 
-        // Add token if available
-        if (this.token) {
-            url.searchParams.set('token', this.token);
-        }
-
         // Add any additional parameters
         if (params) {
             Object.entries(params).forEach(([key, value]) => {
@@ -152,19 +147,21 @@ class ACTRealtimeService {
             });
         }
 
+        url.searchParams.set('token', this.token);
+
         return url.toString();
     }
 
     /**
      * Fetch bus stop profiles from stop codes using AC Transit REST API batch endpoint (raw, no caching)
      * @param stopCodes Array of 5-digit stop codes (max 10 per request)
-     * @returns Map of stop_code to BusStopProfileRaw
+     * @returns Object mapping stop_code to BusStopProfileRaw
      */
-    private async fetchBusStopProfilesRaw(stopCodes: string[]): Promise<Map<string, BusStopProfileRaw>> {
-        const profileMap = new Map<string, BusStopProfileRaw>();
+    private async fetchBusStopProfilesRaw(stopCodes: string[]): Promise<Record<string, BusStopProfileRaw>> {
+        const profiles: Record<string, BusStopProfileRaw> = {};
 
         if (stopCodes.length === 0) {
-            return profileMap;
+            return profiles;
         }
 
         // AC Transit API supports up to 10 stop codes per request
@@ -187,7 +184,7 @@ class ACTRealtimeService {
             if (!response.ok) {
                 if (response.status === 404) {
                     console.warn(`Stop codes not found: ${stopCodes.join(', ')}`);
-                    return profileMap;
+                    return profiles;
                 }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -198,23 +195,23 @@ class ACTRealtimeService {
             const stops = data?.['bustime-response']?.stops;
             if (!stops || stops.length === 0) {
                 console.warn(`No stops found for codes: ${stopCodes.join(', ')}`);
-                return profileMap;
+                return profiles;
             }
 
             stopCodes.forEach((stopCode) => {
                 const profile = stops.find((stop) => stop.stpid === stopCode);
                 if (profile) {
-                    profileMap.set(stopCode, profile);
+                    profiles[stopCode] = profile;
                 }
             });
 
             // Log any stop codes that weren't found
-            const missingCodes = stopCodes.filter((code) => !profileMap.has(code));
+            const missingCodes = stopCodes.filter((code) => !(code in profiles));
             if (missingCodes.length > 0) {
                 console.warn(`Stop codes not found in response: ${missingCodes.join(', ')}`);
             }
 
-            return profileMap;
+            return profiles;
         } catch (error) {
             console.error(`Error fetching bus stop profiles for stop codes ${stopCodes.join(', ')}:`, error);
             throw error;
@@ -224,13 +221,13 @@ class ACTRealtimeService {
     /**
      * Fetch bus stop profiles for multiple stop codes with caching and batching
      * @param stopCodes Array of 5-digit stop codes
-     * @returns Map of stop_code to BusStopProfile
+     * @returns Object mapping stop_code to BusStopProfileRaw
      */
-    async fetchBusStopProfiles(stopCodes: string[]): Promise<Map<string, BusStopProfileRaw>> {
-        const profileMap = new Map<string, BusStopProfileRaw>();
+    async fetchBusStopProfiles(stopCodes: string[]): Promise<Record<string, BusStopProfileRaw>> {
+        const profiles: Record<string, BusStopProfileRaw> = {};
 
         if (stopCodes.length === 0) {
-            return profileMap;
+            return profiles;
         }
 
         // Split into chunks of 10 (AC Transit API limit) using array methods
@@ -252,8 +249,10 @@ class ACTRealtimeService {
                 );
 
                 // Merge results into main map using forEach
-                if (chunkMap.size > 0) {
-                    chunkMap.forEach((profile, code) => profileMap.set(code, profile));
+                if (chunkMap) {
+                    Object.entries(chunkMap).forEach(([code, profile]) => {
+                        profiles[code] = profile;
+                    });
                 }
             } catch (error) {
                 console.error(`Failed to fetch bus stop profiles for chunk: ${chunk.join(', ')}`, error);
@@ -263,21 +262,23 @@ class ACTRealtimeService {
         await Promise.all(promises);
 
         // Log any stop codes that weren't found
-        const missingCodes = stopCodes.filter((code) => !profileMap.has(code));
+        const missingCodes = stopCodes.filter((code) => !(code in profiles));
         if (missingCodes.length > 0) {
             console.warn(`Could not find bus stop profiles for codes: ${missingCodes.join(', ')}`);
         }
 
-        return profileMap;
+        return profiles;
     }
 
     /**
      * Fetch predictions for multiple stops from AC Transit REST API (raw, no caching)
      * @param stopCodes Array of 5-digit stop codes (max 10 per request)
-     * @returns Map of stop_code to predictions response
+     * @returns Object mapping stop_code to predictions response
      */
-    private async fetchBusStopPredictionsRaw(stopCodes: string[]): Promise<Map<string, Array<BusStopPredictionRaw>>> {
-        const predictionsMap = new Map<string, Array<BusStopPredictionRaw>>();
+    private async fetchBusStopPredictionsRaw(
+        stopCodes: string[]
+    ): Promise<Record<string, Array<BusStopPredictionRaw>>> {
+        const predictionsMap: Record<string, Array<BusStopPredictionRaw>> = {};
 
         if (stopCodes.length === 0) {
             return predictionsMap;
@@ -314,10 +315,10 @@ class ACTRealtimeService {
             if (data) {
                 const predictions = data['bustime-response']?.prd;
                 stopCodes.forEach((stopCode) => {
-                    predictionsMap.set(
-                        stopCode,
-                        predictions && Array.isArray(predictions) ? predictions.filter((p) => p.stpid === stopCode) : []
-                    );
+                    predictionsMap[stopCode] =
+                        predictions && Array.isArray(predictions)
+                            ? predictions.filter((p) => p.stpid === stopCode)
+                            : [];
                 });
             }
 
@@ -331,10 +332,10 @@ class ACTRealtimeService {
     /**
      * Fetch predictions for multiple stops with caching and batching
      * @param stopCodes Array of 5-digit stop codes
-     * @returns Map of stop_code to predictions response
+     * @returns Object mapping stop_code to predictions response
      */
-    async fetchBusStopPredictions(stopCodes: string[]): Promise<Map<string, Array<BusStopPredictionRaw>>> {
-        const predictionsMap = new Map<string, Array<BusStopPredictionRaw>>();
+    async fetchBusStopPredictions(stopCodes: string[]): Promise<Record<string, Array<BusStopPredictionRaw>>> {
+        const predictionsMap: Record<string, Array<BusStopPredictionRaw>> = {};
 
         if (stopCodes.length === 0) {
             return predictionsMap;
@@ -358,7 +359,11 @@ class ACTRealtimeService {
                 );
 
                 // Merge results into main map
-                chunkMap.forEach((predictions, code) => predictionsMap.set(code, predictions));
+                if (chunkMap) {
+                    Object.entries(chunkMap).forEach(([code, predictions]) => {
+                        predictionsMap[code] = predictions;
+                    });
+                }
             } catch (error) {
                 console.error(`Failed to fetch predictions for chunk: ${chunk.join(', ')}`, error);
             }
