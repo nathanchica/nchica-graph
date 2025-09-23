@@ -13,7 +13,8 @@
         "lint": "eslint . --fix",
         "format": "prettier --write .",
         "test": "vitest run",
-        "prepare": "husky || true"
+        "prepare": "husky || true",
+        "codegen": "graphql-codegen --config codegen.ts"
     },
     "lint-staged": {
         "**/*.{ts,tsx}": [
@@ -27,6 +28,9 @@
         ],
         "**/*.{css,md,json,yml,yaml}": [
             "prettier --write"
+        ],
+        "src/**/*.schema.ts": [
+            "pnpm codegen"
         ]
     },
     "repository": {
@@ -53,6 +57,9 @@
     },
     "devDependencies": {
         "@eslint/js": "^9.36.0",
+        "@graphql-codegen/cli": "^6.0.0",
+        "@graphql-codegen/typescript": "^5.0.0",
+        "@graphql-codegen/typescript-resolvers": "^5.0.0",
         "@graphql-eslint/eslint-plugin": "^4.4.0",
         "@types/node": "^24.5.2",
         "@types/ws": "^8.18.1",
