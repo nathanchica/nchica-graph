@@ -119,7 +119,7 @@ export const createMockBusStopPredictionsResponse = (
 export const createMockSystemTimeResponse = (overrides?: Partial<SystemTimeResponse>): SystemTimeResponse => {
     const base: SystemTimeResponse = {
         'bustime-response': {
-            tm: '20240930 08:15',
+            tm: '1758684884612',
         },
     };
 

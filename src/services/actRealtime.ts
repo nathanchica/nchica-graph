@@ -1,3 +1,5 @@
+import invariant from 'tiny-invariant';
+
 import { getCachedOrFetch } from '../utils/cache.js';
 import { type FetchWithUrlParams } from '../utils/fetch.js';
 
@@ -58,7 +60,7 @@ export type BusStopPredictionRaw = {
  */
 export type BusStopPredictionsResponse = {
     'bustime-response': {
-        prd: Array<BusStopPredictionRaw>; // Raw prediction objects from ACT API
+        prd: Array<BusStopPredictionRaw> | null;
     };
 };
 
@@ -122,6 +124,7 @@ class ACTRealtimeService {
     private readonly busStopPredictionsPath = '/prediction';
     private readonly vehiclePositionsPath = '/vehicle';
     private readonly systemTimePath = '/time';
+    private readonly maxBusStopsPerRequest = 10;
 
     constructor({
         fetchWithUrlParams,
@@ -143,63 +146,44 @@ class ACTRealtimeService {
      * @returns Object mapping stop_code to BusStopProfileRaw
      */
     private async fetchBusStopProfilesRaw(stopCodes: string[]): Promise<Record<string, BusStopProfileRaw>> {
+        invariant(
+            stopCodes.length > 0 && stopCodes.length <= this.maxBusStopsPerRequest,
+            'stopCodes length should be validated by fetchBusStopProfiles'
+        );
+
         const profiles: Record<string, BusStopProfileRaw> = {};
 
-        if (stopCodes.length === 0) {
-            return profiles;
-        }
-
-        // AC Transit API supports up to 10 stop codes per request
-        if (stopCodes.length > 10) {
-            throw new Error('AC Transit API supports maximum 10 stop codes per request');
-        }
-
-        try {
-            const response = await this.fetchWithUrlParams({
-                url: `${this.baseUrl}${this.busStopProfilePath}`,
-                params: { stpid: stopCodes.join(','), token: this.token },
-                requestInit: {
-                    headers: {
-                        Accept: 'application/json',
-                    },
+        const response = await this.fetchWithUrlParams({
+            url: `${this.baseUrl}${this.busStopProfilePath}`,
+            params: { stpid: stopCodes.join(','), token: this.token },
+            requestInit: {
+                headers: {
+                    Accept: 'application/json',
                 },
-            });
+            },
+        });
 
-            if (!response.ok) {
-                if (response.status === 404) {
-                    console.warn(`Stop codes not found: ${stopCodes.join(', ')}`);
-                    return profiles;
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data: BusStopApiResponse = (await response.json()) as BusStopApiResponse;
-
-            // Navigate through the nested response structure
-            const stops = data?.['bustime-response']?.stops;
-            if (!stops || stops.length === 0) {
-                console.warn(`No stops found for codes: ${stopCodes.join(', ')}`);
-                return profiles;
-            }
-
-            stopCodes.forEach((stopCode) => {
-                const profile = stops.find((stop) => stop.stpid === stopCode);
-                if (profile) {
-                    profiles[stopCode] = profile;
-                }
-            });
-
-            // Log any stop codes that weren't found
-            const missingCodes = stopCodes.filter((code) => !(code in profiles));
-            if (missingCodes.length > 0) {
-                console.warn(`Stop codes not found in response: ${missingCodes.join(', ')}`);
-            }
-
-            return profiles;
-        } catch (error) {
-            console.error(`Error fetching bus stop profiles for stop codes ${stopCodes.join(', ')}:`, error);
-            throw error;
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+
+        const data: BusStopApiResponse = (await response.json()) as BusStopApiResponse;
+
+        // Navigate through the nested response structure
+        const stops = data?.['bustime-response']?.stops;
+        if (!stops || stops.length === 0) {
+            console.warn(`No stops found for codes: ${stopCodes.join(', ')}`);
+            return profiles;
+        }
+
+        stopCodes.forEach((stopCode) => {
+            const profile = stops.find((stop) => stop.stpid === stopCode);
+            if (profile) {
+                profiles[stopCode] = profile;
+            }
+        });
+
+        return profiles;
     }
 
     /**
@@ -214,8 +198,8 @@ class ACTRealtimeService {
             return profiles;
         }
 
-        // Split into chunks of 10 (AC Transit API limit) using array methods
-        const chunkSize = 10;
+        // Split into chunks (AC Transit API limit) using array methods
+        const chunkSize = this.maxBusStopsPerRequest;
         const chunks = Array.from({ length: Math.ceil(stopCodes.length / chunkSize) }, (_, index) =>
             stopCodes.slice(index * chunkSize, (index + 1) * chunkSize)
         );
@@ -239,7 +223,9 @@ class ACTRealtimeService {
                     });
                 }
             } catch (error) {
-                console.error(`Failed to fetch bus stop profiles for chunk: ${chunk.join(', ')}`, error);
+                console.error(
+                    `Failed to fetch bus stop profiles for chunk: ${chunk.join(', ')} - ${error instanceof Error ? error.message /* v8 ignore next */ : error}`
+                );
             }
         });
 
@@ -262,54 +248,39 @@ class ACTRealtimeService {
     private async fetchBusStopPredictionsRaw(
         stopCodes: string[]
     ): Promise<Record<string, Array<BusStopPredictionRaw>>> {
+        invariant(
+            stopCodes.length > 0 && stopCodes.length <= this.maxBusStopsPerRequest,
+            'stopCodes length should be validated by fetchBusStopProfiles'
+        );
+
         const predictionsMap: Record<string, Array<BusStopPredictionRaw>> = {};
 
-        if (stopCodes.length === 0) {
-            return predictionsMap;
-        }
-
-        // AC Transit API supports up to 10 stop codes per request
-        if (stopCodes.length > 10) {
-            throw new Error('AC Transit API supports maximum 10 stop codes per request');
-        }
-
-        try {
-            // Note: AC Transit confusingly calls stop_code "stpid"
-            const response = await this.fetchWithUrlParams({
-                url: `${this.baseUrl}${this.busStopPredictionsPath}`,
-                params: { stpid: stopCodes.join(','), token: this.token },
-                requestInit: {
-                    headers: {
-                        Accept: 'application/json',
-                    },
+        // Note: AC Transit confusingly calls stop_code "stpid"
+        const response = await this.fetchWithUrlParams({
+            url: `${this.baseUrl}${this.busStopPredictionsPath}`,
+            params: { stpid: stopCodes.join(','), token: this.token },
+            requestInit: {
+                headers: {
+                    Accept: 'application/json',
                 },
-            });
+            },
+        });
 
-            if (!response.ok) {
-                if (response.status === 404) {
-                    console.warn(`No predictions for stop codes: ${stopCodes.join(', ')}`);
-                    return predictionsMap;
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data: BusStopPredictionsResponse = (await response.json()) as BusStopPredictionsResponse;
-
-            if (data) {
-                const predictions = data['bustime-response']?.prd;
-                stopCodes.forEach((stopCode) => {
-                    predictionsMap[stopCode] =
-                        predictions && Array.isArray(predictions)
-                            ? predictions.filter((p) => p.stpid === stopCode)
-                            : [];
-                });
-            }
-
-            return predictionsMap;
-        } catch (error) {
-            console.error(`Error fetching predictions for stop codes ${stopCodes.join(', ')}:`, error);
-            throw error;
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+
+        const data: BusStopPredictionsResponse = (await response.json()) as BusStopPredictionsResponse;
+
+        if (data) {
+            const predictions = data['bustime-response']?.prd;
+            stopCodes.forEach((stopCode) => {
+                predictionsMap[stopCode] =
+                    predictions && Array.isArray(predictions) ? predictions.filter((p) => p.stpid === stopCode) : [];
+            });
+        }
+
+        return predictionsMap;
     }
 
     /**
@@ -324,8 +295,8 @@ class ACTRealtimeService {
             return predictionsMap;
         }
 
-        // Split into chunks of 10 (AC Transit API limit)
-        const chunkSize = 10;
+        // Split into chunks (AC Transit API limit)
+        const chunkSize = this.maxBusStopsPerRequest;
         const chunks = Array.from({ length: Math.ceil(stopCodes.length / chunkSize) }, (_, index) =>
             stopCodes.slice(index * chunkSize, (index + 1) * chunkSize)
         );
@@ -348,7 +319,9 @@ class ACTRealtimeService {
                     });
                 }
             } catch (error) {
-                console.error(`Failed to fetch predictions for chunk: ${chunk.join(', ')}`, error);
+                console.error(
+                    `Failed to fetch predictions for chunk: ${chunk.join(', ')} - ${error instanceof Error ? error.message /* v8 ignore next */ : error}`
+                );
             }
         });
 
@@ -361,31 +334,42 @@ class ACTRealtimeService {
      * Fetch the current AC Transit system time without caching
      */
     async fetchSystemTime(): Promise<Date> {
-        const response = await this.fetchWithUrlParams({
-            url: `${this.baseUrl}${this.systemTimePath}`,
-            params: { unixTime: 'true', token: this.token },
-            requestInit: {
-                headers: {
-                    Accept: 'application/json',
+        const now = Date.now();
+        let timestampMs = now;
+
+        try {
+            const response = await this.fetchWithUrlParams({
+                url: `${this.baseUrl}${this.systemTimePath}`,
+                params: { unixTime: 'true', token: this.token },
+                requestInit: {
+                    headers: {
+                        Accept: 'application/json',
+                    },
                 },
-            },
-        });
+            });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error fetching system time! status: ${response.status}`);
-        }
+            if (!response.ok) {
+                throw new Error(`HTTP error fetching system time! status: ${response.status}`);
+            }
 
-        const data: SystemTimeResponse = (await response.json()) as SystemTimeResponse;
-        const rawTimestamp = data?.['bustime-response']?.tm;
+            const data: SystemTimeResponse = (await response.json()) as SystemTimeResponse;
+            const rawTimestamp = data?.['bustime-response']?.tm;
 
-        if (!rawTimestamp) {
-            throw new Error('AC Transit system time response missing timestamp');
-        }
+            if (!rawTimestamp) {
+                throw new Error('AC Transit system time response missing timestamp');
+            }
 
-        const timestampMs = Number.parseInt(rawTimestamp, 10);
+            timestampMs = Number.parseInt(rawTimestamp, 10);
 
-        if (Number.isNaN(timestampMs)) {
-            throw new Error(`Invalid AC Transit system time value: ${rawTimestamp}`);
+            if (Number.isNaN(timestampMs) || timestampMs <= 0) {
+                throw new Error(`Invalid AC Transit system time value: ${rawTimestamp}`);
+            }
+        } catch (error) {
+            // Fallback to server time on error
+            timestampMs = now;
+            console.error(
+                `Error fetching AC Transit system time: ${error instanceof Error ? error.message /* v8 ignore next */ : error}`
+            );
         }
 
         return new Date(timestampMs);
@@ -397,40 +381,31 @@ class ACTRealtimeService {
      * @returns Array of BusPositionRaw
      */
     private async fetchBusPositionsRaw(routeId?: string): Promise<Array<BusPositionRaw>> {
-        try {
-            const response = await this.fetchWithUrlParams({
-                url: `${this.baseUrl}${this.vehiclePositionsPath}`,
-                params: {
-                    ...(routeId ? { rt: routeId } : {}),
-                    token: this.token,
+        const response = await this.fetchWithUrlParams({
+            url: `${this.baseUrl}${this.vehiclePositionsPath}`,
+            params: {
+                ...(routeId ? { rt: routeId } : {}),
+                token: this.token,
+            },
+            requestInit: {
+                headers: {
+                    Accept: 'application/json',
                 },
-                requestInit: {
-                    headers: {
-                        Accept: 'application/json',
-                    },
-                },
-            });
+            },
+        });
 
-            if (!response.ok) {
-                if (response.status === 404) {
-                    console.warn(`No vehicle positions found${routeId ? ` for route: ${routeId}` : ''}`);
-                    return [];
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data: VehiclePositionsResponse = (await response.json()) as VehiclePositionsResponse;
-            const vehicles = data?.['bustime-response']?.vehicle;
-
-            if (!vehicles || vehicles.length === 0) {
-                return [];
-            }
-
-            return vehicles;
-        } catch (error) {
-            console.error(`Error fetching vehicle positions${routeId ? ` for route ${routeId}` : ''}:`, error);
-            throw error;
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+
+        const data: VehiclePositionsResponse = (await response.json()) as VehiclePositionsResponse;
+        const vehicles = data?.['bustime-response']?.vehicle;
+
+        if (!vehicles || vehicles.length === 0) {
+            return [];
+        }
+
+        return vehicles;
     }
 
     /**
@@ -441,11 +416,21 @@ class ACTRealtimeService {
     async fetchVehiclePositions(routeId?: string): Promise<Array<BusPositionRaw>> {
         const cacheKey = `vehicle-positions:${routeId ?? 'all'}`;
 
-        return this.getCachedOrFetch(
-            cacheKey,
-            () => this.fetchBusPositionsRaw(routeId),
-            this.cacheTtl.vehiclePositions
-        );
+        let positions: Array<BusPositionRaw> = [];
+
+        try {
+            positions = await this.getCachedOrFetch(
+                cacheKey,
+                () => this.fetchBusPositionsRaw(routeId),
+                this.cacheTtl.vehiclePositions
+            );
+        } catch (error) {
+            console.error(
+                `Error fetching vehicle positions${routeId ? ` for route ${routeId}` : ''}: ${error instanceof Error ? error.message /* v8 ignore next */ : error}`
+            );
+        }
+
+        return positions;
     }
 }
 
