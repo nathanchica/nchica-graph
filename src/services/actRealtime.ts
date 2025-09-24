@@ -1,6 +1,7 @@
 import invariant from 'tiny-invariant';
 
 import { getCachedOrFetch } from '../utils/cache.js';
+import { UpstreamHttpError } from '../utils/error.js';
 import { type FetchWithUrlParams } from '../utils/fetch.js';
 
 export type ActRealtimeServiceDependencies = {
@@ -153,8 +154,9 @@ class ACTRealtimeService {
 
         const profiles: Record<string, BusStopProfileRaw> = {};
 
+        const url = `${this.baseUrl}${this.busStopProfilePath}`;
         const response = await this.fetchWithUrlParams({
-            url: `${this.baseUrl}${this.busStopProfilePath}`,
+            url,
             params: { stpid: stopCodes.join(','), token: this.token },
             requestInit: {
                 headers: {
@@ -164,7 +166,10 @@ class ACTRealtimeService {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new UpstreamHttpError(`HTTP error! status: ${response.status}`, {
+                status: response.status,
+                meta: { source: 'ACT_REALTIME', url },
+            });
         }
 
         const data: BusStopApiResponse = (await response.json()) as BusStopApiResponse;
@@ -172,7 +177,6 @@ class ACTRealtimeService {
         // Navigate through the nested response structure
         const stops = data?.['bustime-response']?.stops;
         if (!stops || stops.length === 0) {
-            console.warn(`No stops found for codes: ${stopCodes.join(', ')}`);
             return profiles;
         }
 
@@ -209,33 +213,21 @@ class ACTRealtimeService {
             // Create a cache key for this batch
             const cacheKey = `bus-stop-profiles:${chunk.sort().join(',')}`;
 
-            try {
-                const chunkMap = await this.getCachedOrFetch(
-                    cacheKey,
-                    () => this.fetchBusStopProfilesRaw(chunk),
-                    this.cacheTtl.busStopProfiles
-                );
+            const chunkMap = await this.getCachedOrFetch(
+                cacheKey,
+                () => this.fetchBusStopProfilesRaw(chunk),
+                this.cacheTtl.busStopProfiles
+            );
 
-                // Merge results into main map using forEach
-                if (chunkMap) {
-                    Object.entries(chunkMap).forEach(([code, profile]) => {
-                        profiles[code] = profile;
-                    });
-                }
-            } catch (error) {
-                console.error(
-                    `Failed to fetch bus stop profiles for chunk: ${chunk.join(', ')} - ${error instanceof Error ? error.message /* v8 ignore next */ : error}`
-                );
+            // Merge results into main map using forEach
+            if (chunkMap) {
+                Object.entries(chunkMap).forEach(([code, profile]) => {
+                    profiles[code] = profile;
+                });
             }
         });
 
         await Promise.all(promises);
-
-        // Log any stop codes that weren't found
-        const missingCodes = stopCodes.filter((code) => !(code in profiles));
-        if (missingCodes.length > 0) {
-            console.warn(`Could not find bus stop profiles for codes: ${missingCodes.join(', ')}`);
-        }
 
         return profiles;
     }
@@ -255,9 +247,10 @@ class ACTRealtimeService {
 
         const predictionsMap: Record<string, Array<BusStopPredictionRaw>> = {};
 
+        const url = `${this.baseUrl}${this.busStopPredictionsPath}`;
         // Note: AC Transit confusingly calls stop_code "stpid"
         const response = await this.fetchWithUrlParams({
-            url: `${this.baseUrl}${this.busStopPredictionsPath}`,
+            url,
             params: { stpid: stopCodes.join(','), token: this.token },
             requestInit: {
                 headers: {
@@ -267,7 +260,10 @@ class ACTRealtimeService {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new UpstreamHttpError(`HTTP error! status: ${response.status}`, {
+                status: response.status,
+                meta: { source: 'ACT_REALTIME', url },
+            });
         }
 
         const data: BusStopPredictionsResponse = (await response.json()) as BusStopPredictionsResponse;
@@ -305,23 +301,17 @@ class ACTRealtimeService {
         const promises = chunks.map(async (chunk) => {
             const cacheKey = `bus-stop-predictions:${chunk.sort().join(',')}`;
 
-            try {
-                const chunkMap = await this.getCachedOrFetch(
-                    cacheKey,
-                    () => this.fetchBusStopPredictionsRaw(chunk),
-                    this.cacheTtl.predictions
-                );
+            const chunkMap = await this.getCachedOrFetch(
+                cacheKey,
+                () => this.fetchBusStopPredictionsRaw(chunk),
+                this.cacheTtl.predictions
+            );
 
-                // Merge results into main map
-                if (chunkMap) {
-                    Object.entries(chunkMap).forEach(([code, predictions]) => {
-                        predictionsMap[code] = predictions;
-                    });
-                }
-            } catch (error) {
-                console.error(
-                    `Failed to fetch predictions for chunk: ${chunk.join(', ')} - ${error instanceof Error ? error.message /* v8 ignore next */ : error}`
-                );
+            // Merge results into main map
+            if (chunkMap) {
+                Object.entries(chunkMap).forEach(([code, predictions]) => {
+                    predictionsMap[code] = predictions;
+                });
             }
         });
 
@@ -381,8 +371,9 @@ class ACTRealtimeService {
      * @returns Array of BusPositionRaw
      */
     private async fetchBusPositionsRaw(routeId?: string): Promise<Array<BusPositionRaw>> {
+        const url = `${this.baseUrl}${this.vehiclePositionsPath}`;
         const response = await this.fetchWithUrlParams({
-            url: `${this.baseUrl}${this.vehiclePositionsPath}`,
+            url,
             params: {
                 ...(routeId ? { rt: routeId } : {}),
                 token: this.token,
@@ -395,7 +386,10 @@ class ACTRealtimeService {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new UpstreamHttpError(`HTTP error! status: ${response.status}`, {
+                status: response.status,
+                meta: { source: 'ACT_REALTIME', url },
+            });
         }
 
         const data: VehiclePositionsResponse = (await response.json()) as VehiclePositionsResponse;
@@ -418,17 +412,11 @@ class ACTRealtimeService {
 
         let positions: Array<BusPositionRaw> = [];
 
-        try {
-            positions = await this.getCachedOrFetch(
-                cacheKey,
-                () => this.fetchBusPositionsRaw(routeId),
-                this.cacheTtl.vehiclePositions
-            );
-        } catch (error) {
-            console.error(
-                `Error fetching vehicle positions${routeId ? ` for route ${routeId}` : ''}: ${error instanceof Error ? error.message /* v8 ignore next */ : error}`
-            );
-        }
+        positions = await this.getCachedOrFetch(
+            cacheKey,
+            () => this.fetchBusPositionsRaw(routeId),
+            this.cacheTtl.vehiclePositions
+        );
 
         return positions;
     }

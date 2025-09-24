@@ -1,6 +1,7 @@
 import GtfsRealtimeBindings, { type transit_realtime } from 'gtfs-realtime-bindings';
 
 import { getCachedOrFetch } from '../utils/cache.js';
+import { UpstreamHttpError, UpstreamParseError } from '../utils/error.js';
 import { type FetchWithUrlParams } from '../utils/fetch.js';
 
 // Use the protobuf decoder from the default export
@@ -62,33 +63,58 @@ class GTFSRealtimeService {
      * Fetch and parse GTFS-Realtime feed
      */
     private async fetchGTFSFeed(url: string, params?: Record<string, string>): Promise<IFeedMessage> {
-        try {
-            const response = await this.fetchWithUrlParams({
-                url,
-                params: {
-                    ...(params ?? {}),
-                    token: this.token,
-                },
+        const response = await this.fetchWithUrlParams({
+            url,
+            params: {
+                ...(params ?? {}),
+                token: this.token,
+            },
+        });
+
+        if (!response.ok) {
+            throw new UpstreamHttpError(`HTTP error! status: ${response.status}`, {
+                status: response.status,
+                meta: { source: 'GTFS_RT', url },
             });
+        }
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            // Get the response as a buffer (binary data)
+        try {
             const buffer = await response.arrayBuffer();
             const uint8Array = new Uint8Array(buffer);
-
-            // Parse the protobuf data
             const feed = FeedMessage.decode(uint8Array);
-
             return feed;
         } catch (error) {
-            console.error(
-                `Error fetching GTFS feed from ${url}: ${error instanceof Error ? error.message /* v8 ignore next */ : error}`
-            );
-            throw error;
+            throw new UpstreamParseError('Failed to parse GTFS feed', {
+                meta: { source: 'GTFS_RT', url },
+                cause: error,
+            });
         }
+    }
+
+    /**
+     * Filter data for specific route (e.g., '51B')
+     */
+    private filterByRoute(feed: IFeedMessage, routeId: string): IFeedMessage {
+        const filteredEntities = (feed.entity || []).filter((entity) => {
+            // Check vehicle positions
+            if (entity.vehicle?.trip?.routeId === routeId) {
+                return true;
+            }
+            // Check trip updates
+            if (entity.tripUpdate?.trip?.routeId === routeId) {
+                return true;
+            }
+            // Check alerts
+            if (entity.alert?.informedEntity?.some((e) => e.routeId === routeId)) {
+                return true;
+            }
+            return false;
+        });
+
+        return {
+            ...feed,
+            entity: filteredEntities,
+        };
     }
 
     /**
@@ -202,32 +228,6 @@ class GTFSRealtimeService {
 
         // Filter for the specific route
         return this.filterByRoute(allAlerts, routeId);
-    }
-
-    /**
-     * Filter data for specific route (e.g., '51B')
-     */
-    filterByRoute(feed: IFeedMessage, routeId: string): IFeedMessage {
-        const filteredEntities = (feed.entity || []).filter((entity) => {
-            // Check vehicle positions
-            if (entity.vehicle?.trip?.routeId === routeId) {
-                return true;
-            }
-            // Check trip updates
-            if (entity.tripUpdate?.trip?.routeId === routeId) {
-                return true;
-            }
-            // Check alerts
-            if (entity.alert?.informedEntity?.some((e) => e.routeId === routeId)) {
-                return true;
-            }
-            return false;
-        });
-
-        return {
-            ...feed,
-            entity: filteredEntities,
-        };
     }
 }
 

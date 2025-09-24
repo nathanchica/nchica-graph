@@ -77,16 +77,11 @@ describe('ACT Realtime Service', () => {
                 ...defaultDependencies,
                 fetchWithUrlParams: mockFetch,
             });
-            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
             const response = await service.fetchBusStopProfiles(['50373']);
 
             expect(mockFetch).toHaveBeenCalledTimes(1);
             expect(response).toEqual({});
-            expect(warnSpy).toHaveBeenCalledWith('No stops found for codes: 50373');
-            expect(warnSpy).toHaveBeenCalledWith('Could not find bus stop profiles for codes: 50373');
-
-            warnSpy.mockRestore();
         });
 
         it.each([
@@ -102,19 +97,8 @@ describe('ACT Realtime Service', () => {
                 ...defaultDependencies,
                 fetchWithUrlParams: mockFetch,
             });
-            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-            const response = await service.fetchBusStopProfiles(['50373']);
-
+            await expect(service.fetchBusStopProfiles(['50373'])).rejects.toThrow(expectedErrorMessage);
             expect(mockFetch).toHaveBeenCalledTimes(1);
-            expect(response).toEqual({});
-            expect(errorSpy).toHaveBeenCalledWith(
-                `Failed to fetch bus stop profiles for chunk: 50373 - ${expectedErrorMessage}`
-            );
-
-            errorSpy.mockRestore();
-            warnSpy.mockRestore();
         });
     });
 
@@ -188,19 +172,8 @@ describe('ACT Realtime Service', () => {
                 ...defaultDependencies,
                 fetchWithUrlParams: mockFetch,
             });
-            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-            const response = await service.fetchBusStopPredictions(['50373']);
-
+            await expect(service.fetchBusStopPredictions(['50373'])).rejects.toThrow('HTTP error! status: 500');
             expect(mockFetch).toHaveBeenCalledTimes(1);
-            expect(response).toEqual({});
-            expect(errorSpy).toHaveBeenCalledWith(
-                'Failed to fetch predictions for chunk: 50373 - HTTP error! status: 500'
-            );
-
-            errorSpy.mockRestore();
-            warnSpy.mockRestore();
         });
     });
 
@@ -344,17 +317,8 @@ describe('ACT Realtime Service', () => {
                 ...defaultDependencies,
                 fetchWithUrlParams: mockFetch,
             });
-            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-            const response = await service.fetchVehiclePositions('51B');
-
+            await expect(service.fetchVehiclePositions('51B')).rejects.toThrow('HTTP error! status: 500');
             expect(mockFetch).toHaveBeenCalledTimes(1);
-            expect(response).toEqual([]);
-            expect(errorSpy).toHaveBeenCalledWith(
-                'Error fetching vehicle positions for route 51B: HTTP error! status: 500'
-            );
-
-            errorSpy.mockRestore();
         });
 
         it('handles when response is missing vehicles', async () => {
