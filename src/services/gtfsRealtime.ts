@@ -1,14 +1,30 @@
 import GtfsRealtimeBindings, { type transit_realtime } from 'gtfs-realtime-bindings';
-import fetch from 'node-fetch';
 
-import { env } from '../env.js';
 import { getCachedOrFetch } from '../utils/cache.js';
+import { type FetchWithUrlParams } from '../utils/fetch.js';
 
 // Use the protobuf decoder from the default export
 const { transit_realtime: rt } = GtfsRealtimeBindings;
 const { FeedMessage } = rt;
 
 type IFeedMessage = transit_realtime.IFeedMessage;
+
+export type GTFSRealtimeServiceDependencies = {
+    /* Fetch helper for working with URL params */
+    fetchWithUrlParams: FetchWithUrlParams;
+    /* Token for GTFS realtime API access */
+    apiToken: string;
+    /* Base URL for GTFS realtime API */
+    apiBaseUrl: string;
+    /* Cache TTL configuration for GTFS feeds */
+    cacheTtl: {
+        vehiclePositions: number;
+        tripUpdates: number;
+        serviceAlerts: number;
+    };
+    /* Cache utility */
+    getCachedOrFetch: typeof getCachedOrFetch;
+};
 
 /**
  * GTFS Realtime Service
@@ -17,36 +33,29 @@ type IFeedMessage = transit_realtime.IFeedMessage;
 class GTFSRealtimeService {
     private readonly baseUrl: string;
     private readonly token: string;
+    private readonly fetchWithUrlParams: FetchWithUrlParams;
+    private readonly cacheTtl: {
+        vehiclePositions: number;
+        tripUpdates: number;
+        serviceAlerts: number;
+    };
+    private readonly getCachedOrFetch: typeof getCachedOrFetch;
     private readonly vehiclePositionsPath = '/vehicles';
     private readonly tripUpdatesPath = '/tripupdates';
     private readonly serviceAlertsPath = '/alerts';
 
-    constructor() {
-        this.baseUrl = env.GTFS_REALTIME_API_BASE_URL;
-        this.token = env.AC_TRANSIT_TOKEN;
-    }
-
-    /**
-     * Build URL with token and optional additional parameters
-     * @param baseUrl The base URL to build from
-     * @param params Optional additional query parameters
-     */
-    private buildUrl(baseUrl: string, params?: Record<string, string>): string {
-        const url = new URL(baseUrl);
-
-        // Add token if available
-        if (this.token) {
-            url.searchParams.set('token', this.token);
-        }
-
-        // Add any additional parameters
-        if (params) {
-            Object.entries(params).forEach(([key, value]) => {
-                url.searchParams.set(key, value);
-            });
-        }
-
-        return url.toString();
+    constructor({
+        fetchWithUrlParams,
+        apiToken,
+        apiBaseUrl,
+        cacheTtl,
+        getCachedOrFetch,
+    }: GTFSRealtimeServiceDependencies) {
+        this.baseUrl = apiBaseUrl;
+        this.token = apiToken;
+        this.fetchWithUrlParams = fetchWithUrlParams;
+        this.cacheTtl = cacheTtl;
+        this.getCachedOrFetch = getCachedOrFetch;
     }
 
     /**
@@ -54,8 +63,13 @@ class GTFSRealtimeService {
      */
     private async fetchGTFSFeed(url: string, params?: Record<string, string>): Promise<IFeedMessage> {
         try {
-            const finalUrl = this.buildUrl(url, params);
-            const response = await fetch(finalUrl);
+            const response = await this.fetchWithUrlParams({
+                url,
+                params: {
+                    ...(params ?? {}),
+                    token: this.token,
+                },
+            });
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -70,7 +84,9 @@ class GTFSRealtimeService {
 
             return feed;
         } catch (error) {
-            console.error(`Error fetching GTFS feed from ${url}:`, error);
+            console.error(
+                `Error fetching GTFS feed from ${url}: ${error instanceof Error ? error.message /* v8 ignore next */ : error}`
+            );
             throw error;
         }
     }
@@ -90,11 +106,7 @@ class GTFSRealtimeService {
      */
     async fetchVehiclePositions(): Promise<IFeedMessage> {
         // Use cache for all vehicle positions
-        return getCachedOrFetch(
-            `bus:all`,
-            () => this.fetchVehiclePositionsRaw(),
-            env.WHERE_IS_51B_CACHE_TTL_VEHICLE_POSITIONS
-        );
+        return this.getCachedOrFetch(`bus:all`, () => this.fetchVehiclePositionsRaw(), this.cacheTtl.vehiclePositions);
     }
 
     /**
@@ -121,7 +133,7 @@ class GTFSRealtimeService {
      * Fetch trip updates with caching
      */
     async fetchTripUpdates(): Promise<IFeedMessage> {
-        return getCachedOrFetch(`trips:all`, () => this.fetchTripUpdatesRaw(), env.WHERE_IS_51B_CACHE_TTL_PREDICTIONS);
+        return this.getCachedOrFetch(`trips:all`, () => this.fetchTripUpdatesRaw(), this.cacheTtl.tripUpdates);
     }
 
     /**
@@ -178,11 +190,7 @@ class GTFSRealtimeService {
      * Fetch service alerts with caching
      */
     async fetchServiceAlerts(): Promise<IFeedMessage> {
-        return getCachedOrFetch(
-            `alerts:all`,
-            () => this.fetchServiceAlertsRaw(),
-            env.WHERE_IS_51B_CACHE_TTL_SERVICE_ALERTS
-        );
+        return this.getCachedOrFetch(`alerts:all`, () => this.fetchServiceAlertsRaw(), this.cacheTtl.serviceAlerts);
     }
 
     /**
@@ -223,9 +231,7 @@ class GTFSRealtimeService {
     }
 }
 
-// Export singleton instance
-const gtfsRealtimeService = new GTFSRealtimeService();
+export type GTFSRealtimeServiceType = GTFSRealtimeService;
 
-export type GTFSRealtimeServiceType = typeof gtfsRealtimeService;
-
-export default gtfsRealtimeService;
+export const createGTFSRealtimeService = (deps: GTFSRealtimeServiceDependencies): GTFSRealtimeServiceType =>
+    new GTFSRealtimeService(deps);
