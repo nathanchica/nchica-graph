@@ -214,7 +214,7 @@ class GTFSRealtimeService {
                 return true;
             }
             // Check trip updates
-            if (entity.tripUpdate?.trip.routeId === routeId) {
+            if (entity.tripUpdate?.trip?.routeId === routeId) {
                 return true;
             }
             // Check alerts

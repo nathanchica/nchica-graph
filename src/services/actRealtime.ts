@@ -250,7 +250,7 @@ class ACTRealtimeService {
     ): Promise<Record<string, Array<BusStopPredictionRaw>>> {
         invariant(
             stopCodes.length > 0 && stopCodes.length <= this.maxBusStopsPerRequest,
-            'stopCodes length should be validated by fetchBusStopProfiles'
+            'stopCodes length should be validated by fetchBusStopPredictions'
         );
 
         const predictionsMap: Record<string, Array<BusStopPredictionRaw>> = {};
