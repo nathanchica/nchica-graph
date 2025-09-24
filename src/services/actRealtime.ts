@@ -1,4 +1,5 @@
 import invariant from 'tiny-invariant';
+import { z } from 'zod';
 
 import { getCachedOrFetch } from '../utils/cache.js';
 import { UpstreamHttpError } from '../utils/error.js';
@@ -70,6 +71,30 @@ export type SystemTimeResponse = {
         tm?: string;
     };
 };
+
+const SystemTimeResponseSchema = z.object({
+    'bustime-response': z.object({
+        tm: z.string().transform((s, ctx) => {
+            const trimmed = s?.trim?.();
+            if (!trimmed) {
+                ctx.addIssue({
+                    code: 'custom',
+                    message: 'AC Transit system time response missing timestamp',
+                });
+                return z.NEVER;
+            }
+            const number = Number.parseInt(trimmed, 10);
+            if (!Number.isFinite(number) || number <= 0) {
+                ctx.addIssue({
+                    code: 'custom',
+                    message: `Invalid AC Transit system time value: ${s}`,
+                });
+                return z.NEVER;
+            }
+            return number;
+        }),
+    }),
+});
 
 export type BusPositionRaw = {
     vid: string; // Vehicle ID
@@ -342,18 +367,16 @@ class ACTRealtimeService {
                 throw new Error(`HTTP error fetching system time! status: ${response.status}`);
             }
 
-            const data: SystemTimeResponse = (await response.json()) as SystemTimeResponse;
-            const rawTimestamp = data?.['bustime-response']?.tm;
-
-            if (!rawTimestamp) {
-                throw new Error('AC Transit system time response missing timestamp');
+            const json = await response.json();
+            const parsed = SystemTimeResponseSchema.safeParse(json);
+            if (!parsed.success) {
+                const msg = parsed.error.issues[0]?.message;
+                const message = msg?.startsWith('Invalid AC Transit system time value')
+                    ? msg
+                    : 'AC Transit system time response missing timestamp';
+                throw new Error(message);
             }
-
-            timestampMs = Number.parseInt(rawTimestamp, 10);
-
-            if (Number.isNaN(timestampMs) || timestampMs <= 0) {
-                throw new Error(`Invalid AC Transit system time value: ${rawTimestamp}`);
-            }
+            timestampMs = parsed.data['bustime-response'].tm; // already a validated number
         } catch (error) {
             // Fallback to server time on error
             timestampMs = now;
