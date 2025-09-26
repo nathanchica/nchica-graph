@@ -2,15 +2,24 @@ import type { YogaInitialContext } from 'graphql-yoga';
 
 import type { Env } from './env.js';
 import { env } from './env.js';
+import type { ACTRealtimeServiceType } from './services/actRealtime.js';
+import type { GTFSRealtimeServiceType } from './services/gtfsRealtime.js';
 
-export interface GraphQLContext {
+export type Services = {
+    actRealtime: ACTRealtimeServiceType;
+    gtfsRealtime: GTFSRealtimeServiceType;
+};
+export interface GraphQLContext extends YogaInitialContext {
     env: Env;
-    request: YogaInitialContext['request'];
+    services: Services;
 }
 
-export async function createContext(initialContext: YogaInitialContext): Promise<GraphQLContext> {
-    return {
-        env,
-        request: initialContext.request,
+export function createContextFactory(services: Services) {
+    return async function createContext(initialContext: YogaInitialContext): Promise<GraphQLContext> {
+        return {
+            ...initialContext,
+            env,
+            services,
+        };
     };
 }

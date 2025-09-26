@@ -41,6 +41,60 @@ Unified GraphQL Yoga server merging multiple internal services into a single sch
 - When fetching from external services, use HybridCache (src/utils/cache.ts) for caching the fetched values either in-memory or in a redis server.
 - Use mock factories for Yoga client, context, and env vars in src/mocks for tests
 
+#### Context & services (DI pattern)
+
+- Services are created once at server startup and injected into the GraphQL context via a factory. This avoids per-request instantiation while keeping testability.
+- Runtime: `src/server.ts` builds singletons and passes them to the context factory:
+
+    ```ts
+    // src/server.ts
+    import { createContextFactory, type GraphQLContext } from './context.js';
+    import { createACTRealtimeService } from './services/actRealtime.js';
+    import { createGTFSRealtimeService } from './services/gtfsRealtime.js';
+    import { fetchWithUrlParams } from './utils/fetch.js';
+    import { getCachedOrFetch } from './utils/cache.js';
+
+    const services = {
+        actRealtime: createACTRealtimeService({
+            fetchWithUrlParams,
+            apiToken: env.AC_TRANSIT_TOKEN,
+            apiBaseUrl: env.ACT_REALTIME_API_BASE_URL,
+            cacheTtl: {
+                busStopProfiles: env.WHERE_IS_51B_CACHE_TTL_BUS_STOP_PROFILES,
+                predictions: env.WHERE_IS_51B_CACHE_TTL_PREDICTIONS,
+                vehiclePositions: env.WHERE_IS_51B_CACHE_TTL_VEHICLE_POSITIONS,
+            },
+            getCachedOrFetch,
+        }),
+        gtfsRealtime: createGTFSRealtimeService({
+            fetchWithUrlParams,
+            apiToken: env.AC_TRANSIT_TOKEN,
+            apiBaseUrl: env.GTFS_REALTIME_API_BASE_URL,
+            cacheTtl: {
+                vehiclePositions: env.WHERE_IS_51B_CACHE_TTL_VEHICLE_POSITIONS,
+                tripUpdates: env.WHERE_IS_51B_CACHE_TTL_PREDICTIONS,
+                serviceAlerts: env.WHERE_IS_51B_CACHE_TTL_SERVICE_ALERTS,
+            },
+            getCachedOrFetch,
+        }),
+    };
+
+    const yoga = createYoga<GraphQLContext>({ schema, context: createContextFactory(services) });
+    ```
+
+- Context: `src/context.ts` exports a factory that injects `env` and these services into each request’s context:
+    ```ts
+    // src/context.ts
+    export function createContextFactory(services: GraphQLServices) {
+        return async (initial) => ({
+            ...initial,
+            env,
+            services,
+        });
+    }
+    ```
+- Tests: use `src/mocks/context.ts` (and `src/mocks/client.ts`) to get a fully‑formed `GraphQLContext` with mock `env` and real or mocked services; you can pass overrides per operation as needed.
+
 #### New schema types and resolvers
 
 - Create new directory under `src/schema`
