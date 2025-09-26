@@ -1,6 +1,6 @@
 import { type transit_realtime } from 'gtfs-realtime-bindings';
 
-import type { BusStopPredictionRaw } from '../services/actRealtime.js';
+import type { BusStopPredictionRaw } from '../services/actRealtime.schemas.js';
 import { parseActRealtimeTimestamp } from '../utils/datetime.js';
 
 export interface BusStopPrediction {

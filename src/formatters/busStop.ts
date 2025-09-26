@@ -1,4 +1,4 @@
-import type { BusStopProfileRaw } from '../services/actRealtime.js';
+import type { BusStopProfileRaw } from '../services/actRealtime.schemas.js';
 
 /**
  * Structured bus stop profile data

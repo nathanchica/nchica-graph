@@ -4,9 +4,8 @@ import type {
     BusStopPredictionRaw,
     BusStopPredictionsResponse,
     BusStopProfileRaw,
-    SystemTimeResponse,
     VehiclePositionsResponse,
-} from '../actRealtime.js';
+} from '../actRealtime.schemas.js';
 
 export const createMockBusStopProfileRaw = (overrides?: Partial<BusStopProfileRaw>): BusStopProfileRaw => ({
     stpid: '50373',
@@ -81,32 +80,6 @@ export const createMockBusStopPredictionsResponse = (
     }
 
     const merged: BusStopPredictionsResponse = {
-        ...base,
-        ...overrides,
-    };
-
-    if (overrides['bustime-response']) {
-        merged['bustime-response'] = {
-            ...base['bustime-response'],
-            ...overrides['bustime-response'],
-        };
-    }
-
-    return merged;
-};
-
-export const createMockSystemTimeResponse = (overrides?: Partial<SystemTimeResponse>): SystemTimeResponse => {
-    const base: SystemTimeResponse = {
-        'bustime-response': {
-            tm: '1758684884612',
-        },
-    };
-
-    if (!overrides) {
-        return base;
-    }
-
-    const merged: SystemTimeResponse = {
         ...base,
         ...overrides,
     };

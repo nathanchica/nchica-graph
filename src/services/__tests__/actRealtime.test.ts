@@ -7,14 +7,9 @@ import {
     createMockBusStopPredictionRaw,
     createMockBusPositionRaw,
     createMockVehiclePositionsResponse,
-    createMockSystemTimeResponse,
 } from '../__mocks__/actRealtimeResponses.js';
-import {
-    createACTRealtimeService,
-    type ActRealtimeServiceDependencies,
-    type BusStopProfileRaw,
-    type BusStopPredictionRaw,
-} from '../actRealtime.js';
+import { createACTRealtimeService, type ActRealtimeServiceDependencies } from '../actRealtime.js';
+import type { BusStopProfileRaw, BusStopPredictionRaw } from '../actRealtime.schemas.js';
 
 const defaultDependencies: ActRealtimeServiceDependencies = {
     fetchWithUrlParams: vi.fn(),
@@ -247,14 +242,13 @@ describe('ACT Realtime Service', () => {
     describe('fetch system time', () => {
         it('fetches system time', async () => {
             const mockDate = new Date('2023-10-10T12:34:00-07:00');
-            const mockResponse = createMockSystemTimeResponse({
-                'bustime-response': {
-                    tm: mockDate.getTime().toString(),
-                },
-            });
             const mockFetch = vi.fn().mockResolvedValue({
                 ok: true,
-                json: vi.fn().mockResolvedValue(mockResponse),
+                json: vi.fn().mockResolvedValue({
+                    'bustime-response': {
+                        tm: mockDate.getTime().toString(),
+                    },
+                }),
             });
             const service = createACTRealtimeService({
                 ...defaultDependencies,
@@ -318,14 +312,13 @@ describe('ACT Realtime Service', () => {
                 const mockDate = new Date('2023-10-10T12:00:00-07:00');
                 vi.setSystemTime(mockDate);
 
-                const mockResponse = createMockSystemTimeResponse({
-                    'bustime-response': {
-                        tm: rawTimestamp,
-                    },
-                });
                 const mockFetch = vi.fn().mockResolvedValue({
                     ok: true,
-                    json: vi.fn().mockResolvedValue(mockResponse),
+                    json: vi.fn().mockResolvedValue({
+                        'bustime-response': {
+                            tm: rawTimestamp,
+                        },
+                    }),
                 });
                 const service = createACTRealtimeService({
                     ...defaultDependencies,

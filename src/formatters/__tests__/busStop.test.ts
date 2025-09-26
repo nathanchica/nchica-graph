@@ -1,5 +1,5 @@
 import { createMockBusStopProfileRaw } from '../../services/__mocks__/actRealtimeResponses.js';
-import type { BusStopProfileRaw } from '../../services/actRealtime.js';
+import type { BusStopProfileRaw } from '../../services/actRealtime.schemas.js';
 import { createBusStopProfile } from '../busStop.js';
 
 describe('createBusStopProfile', () => {
