@@ -22,21 +22,15 @@ export type ActRealtimeServiceDependencies = {
     getCachedOrFetch: typeof getCachedOrFetch;
 };
 
-export type BusStopProfileRaw = {
-    stpid: string; // stop code (5-digit)
-    stpnm: string; // stop name
-    geoid: string; // GTFS stop_id
-    lat: number;
-    lon: number;
-};
-
 const BusStopProfileRawSchema = z.looseObject({
-    stpid: z.string(),
-    stpnm: z.string(),
-    geoid: z.string(),
-    lat: z.coerce.number(),
-    lon: z.coerce.number(),
+    stpid: z.string().describe('Stop code (5-digit)'),
+    stpnm: z.string().describe('Stop name'),
+    geoid: z.string().describe('GTFS stop_id'),
+    lat: z.coerce.number().describe('Latitude'),
+    lon: z.coerce.number().describe('Longitude'),
 });
+
+export type BusStopProfileRaw = z.infer<typeof BusStopProfileRawSchema>;
 
 /**
  * Response type for GET actrealtime/stop?rt={rt}&dir={dir}&stpid={stpid}&callback={callback}
@@ -47,31 +41,27 @@ export type BusStopApiResponse = {
     };
 };
 
-const BusStopApiResponseSchema = z.looseObject({
-    'bustime-response': z.looseObject({
-        stops: z.array(BusStopProfileRawSchema),
-    }),
-});
-
-export type BusStopPredictionRaw = {
-    stpid: string; // Stop ID (5-digit stop code, not GTFS stop_id)
-    vid: string; // Vehicle ID
-    dstp: number; // Distance to stop (in feet)
-    rtdir: string; // Route direction description
-    prdtm: string; // Predicted time "YYYYMMDD HH:MM"
-    tatripid: string; // Trip ID
-    prdctdn: string; // Countdown - "Due" or number of minutes
-};
+const BusStopApiResponseSchema = z
+    .looseObject({
+        'bustime-response': z
+            .looseObject({
+                stops: z.array(BusStopProfileRawSchema).describe('List of stop profiles'),
+            })
+            .describe('AC Transit BusTime envelope (stop profiles)'),
+    })
+    .describe('AC Transit stop profile API response');
 
 const BusStopPredictionRawSchema = z.looseObject({
-    stpid: z.string(),
-    vid: z.string(),
-    dstp: z.coerce.number(),
-    rtdir: z.string(),
-    prdtm: z.string(),
-    tatripid: z.string(),
-    prdctdn: z.string(),
+    stpid: z.string().describe('Stop ID (5-digit stop code, not GTFS stop_id)'),
+    vid: z.string().describe('Vehicle ID'),
+    dstp: z.coerce.number().describe('Distance to stop (in feet)'),
+    rtdir: z.string().describe('Route direction description'),
+    prdtm: z.string().describe('Predicted time "YYYYMMDD HH:MM"'),
+    tatripid: z.string().describe('Trip ID'),
+    prdctdn: z.string().describe('Countdown — "Due" or number of minutes'),
 });
+
+export type BusStopPredictionRaw = z.infer<typeof BusStopPredictionRawSchema>;
 
 /**
  * Response type for GET actrealtime/prediction?stpid={stpid}&rt={rt}&vid={vid}&top={top}&tmres={tmres}&callback={callback}&showocprd={showocprd}
@@ -82,11 +72,15 @@ export type BusStopPredictionsResponse = {
     };
 };
 
-const BusStopPredictionsResponseSchema = z.looseObject({
-    'bustime-response': z.looseObject({
-        prd: z.array(BusStopPredictionRawSchema).nullable(),
-    }),
-});
+const BusStopPredictionsResponseSchema = z
+    .looseObject({
+        'bustime-response': z
+            .looseObject({
+                prd: z.array(BusStopPredictionRawSchema).nullable().describe('Predictions array or null'),
+            })
+            .describe('AC Transit BusTime envelope (predictions)'),
+    })
+    .describe('AC Transit bus stop predictions API response');
 
 export type SystemTimeResponse = {
     'bustime-response'?: {
@@ -94,54 +88,38 @@ export type SystemTimeResponse = {
     };
 };
 
-const SystemTimeResponseSchema = z.looseObject({
-    'bustime-response': z.looseObject({
-        tm: z.string().transform((s, ctx) => {
-            const trimmed = s?.trim?.();
-            if (!trimmed) {
-                ctx.addIssue({
-                    code: 'custom',
-                    message: 'AC Transit system time response missing timestamp',
-                });
-                return z.NEVER;
-            }
-            const number = Number.parseInt(trimmed, 10);
-            if (!Number.isFinite(number) || number <= 0) {
-                ctx.addIssue({
-                    code: 'custom',
-                    message: `Invalid AC Transit system time value: ${s}`,
-                });
-                return z.NEVER;
-            }
-            return number;
-        }),
-    }),
-});
+const SystemTimeResponseSchema = z
+    .looseObject({
+        'bustime-response': z
+            .looseObject({
+                tm: z
+                    .string()
+                    .transform((s, ctx) => {
+                        const trimmed = s?.trim?.();
+                        if (!trimmed) {
+                            ctx.addIssue({
+                                code: 'custom',
+                                message: 'AC Transit system time response missing timestamp',
+                            });
+                            return z.NEVER;
+                        }
+                        const number = Number.parseInt(trimmed, 10);
+                        if (!Number.isFinite(number) || number <= 0) {
+                            ctx.addIssue({
+                                code: 'custom',
+                                message: `Invalid AC Transit system time value: ${s}`,
+                            });
+                            return z.NEVER;
+                        }
+                        return number;
+                    })
+                    .describe('Unix timestamp in ms (string), validated to number'),
+            })
+            .describe('AC Transit BusTime envelope (system time)'),
+    })
+    .describe('AC Transit system time API response');
 
-export type BusPositionRaw = {
-    vid: string; // Vehicle ID
-    rt: string; // Route (e.g., "51B")
-    des: string; // Destination headsign
-    tmstmp: string; // Timestamp "YYYYMMDD HH:MM"
-    lat: string; // Latitude as a string
-    lon: string; // Longitude as a string
-    hdg?: string; // Heading in degrees
-    pid?: number; // Pattern ID
-    pdist?: number; // Distance travelled along pattern (feet)
-    dly?: boolean; // Delay flag
-    spd?: number; // Speed in mph
-    tablockid?: string; // Block identifier
-    tatripid?: string; // Trip ID (string form)
-    zone?: string; // Fare zone identifier
-    mode?: number; // Mode indicator (0 = bus)
-    psgld?: string; // Passenger load indicator
-    oid?: string; // Operator ID
-    or?: boolean; // Out of route flag
-    blk?: number; // Block number
-    tripid?: number; // Trip identifier (numeric)
-    tripdyn?: number; // Trip dynamics flag
-    rtpidatafeed?: string; // Data feed identifier
-};
+export type BusPositionRaw = z.infer<typeof BusPositionRawSchema>;
 
 /**
  * Response type for GET actrealtime/vehicle?vid={vid}&rt={rt}&tmres={tmres}&callback={callback}&lat={lat}&lng={lng}&searchRadius={searchRadius}
@@ -153,22 +131,32 @@ export type VehiclePositionsResponse = {
 };
 
 const BusPositionRawSchema = z.looseObject({
-    vid: z.string(),
-    rt: z.string(),
-    tmstmp: z.string(),
-    lat: z.union([z.string(), z.number()]).transform((v) => String(v)),
-    lon: z.union([z.string(), z.number()]).transform((v) => String(v)),
-    hdg: z.union([z.string(), z.number()]).optional(),
-    spd: z.union([z.string(), z.number()]).optional(),
-    tatripid: z.string().optional(),
-    tripid: z.coerce.number().optional(),
+    vid: z.string().describe('Vehicle ID'),
+    rt: z.string().describe('Route (e.g., "51B")'),
+    tmstmp: z.string().describe('Timestamp "YYYYMMDD HH:MM"'),
+    lat: z
+        .union([z.string(), z.number()])
+        .transform((v) => String(v))
+        .describe('Latitude as a string'),
+    lon: z
+        .union([z.string(), z.number()])
+        .transform((v) => String(v))
+        .describe('Longitude as a string'),
+    hdg: z.union([z.string(), z.number()]).optional().describe('Heading in degrees'),
+    spd: z.union([z.string(), z.number()]).optional().describe('Speed in mph'),
+    tatripid: z.string().optional().describe('Trip ID (string form)'),
+    tripid: z.coerce.number().optional().describe('Trip identifier (numeric)'),
 });
 
-const VehiclePositionsResponseSchema = z.looseObject({
-    'bustime-response': z.looseObject({
-        vehicle: z.array(BusPositionRawSchema).optional(),
-    }),
-});
+const VehiclePositionsResponseSchema = z
+    .looseObject({
+        'bustime-response': z
+            .looseObject({
+                vehicle: z.array(BusPositionRawSchema).optional().describe('Array of vehicle positions'),
+            })
+            .describe('AC Transit BusTime envelope (vehicle positions)'),
+    })
+    .describe('AC Transit vehicle positions API response');
 
 /**
  * ACT Realtime Service
