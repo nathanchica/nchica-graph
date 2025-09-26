@@ -1,5 +1,15 @@
 import invariant from 'tiny-invariant';
 
+import {
+    type BusStopProfileRaw,
+    BusStopApiResponseSchema,
+    type BusStopPredictionRaw,
+    BusStopPredictionsResponseSchema,
+    SystemTimeResponseSchema,
+    type BusPositionRaw,
+    VehiclePositionsResponseSchema,
+} from './actRealtime.schemas.js';
+
 import { getCachedOrFetch } from '../utils/cache.js';
 import { UpstreamHttpError } from '../utils/error.js';
 import { type FetchWithUrlParams } from '../utils/fetch.js';
@@ -19,90 +29,6 @@ export type ActRealtimeServiceDependencies = {
     };
     /* Caching utility function */
     getCachedOrFetch: typeof getCachedOrFetch;
-};
-
-export type BusStopProfileRaw = {
-    stpid: string; // stop code (5-digit)
-    stpnm: string; // stop name
-    geoid: string; // GTFS stop_id
-    lat: number;
-    lon: number;
-};
-
-/**
- * Response type for GET actrealtime/stop?rt={rt}&dir={dir}&stpid={stpid}&callback={callback}
- */
-export type BusStopApiResponse = {
-    'bustime-response': {
-        stops: Array<BusStopProfileRaw>;
-    };
-};
-
-export type BusStopPredictionRaw = {
-    tmstmp: string; // "20250918 05:55"
-    typ: string; // "A" for arrival, "D" for departure
-    stpnm: string; // Stop name
-    stpid: string; // Stop ID (5-digit stop code, not GTFS stop_id)
-    vid: string; // Vehicle ID
-    dstp: number; // Distance to stop (in feet)
-    rt: string; // Route (e.g., "51B")
-    rtdd: string; // Route display
-    rtdir: string; // Route direction description
-    des: string; // Destination
-    prdtm: string; // Predicted time "20250918 05:54"
-    tatripid: string; // Trip ID
-    prdctdn: string; // Countdown - "Due" or number of minutes
-    schdtm: string; // Scheduled time
-    seq: number; // Stop sequence
-};
-
-/**
- * Response type for GET actrealtime/prediction?stpid={stpid}&rt={rt}&vid={vid}&top={top}&tmres={tmres}&callback={callback}&showocprd={showocprd}
- */
-export type BusStopPredictionsResponse = {
-    'bustime-response': {
-        prd: Array<BusStopPredictionRaw> | null;
-    };
-};
-
-export type SystemTimeResponse = {
-    'bustime-response'?: {
-        tm?: string;
-    };
-};
-
-export type BusPositionRaw = {
-    vid: string; // Vehicle ID
-    rt: string; // Route (e.g., "51B")
-    des: string; // Destination headsign
-    tmstmp: string; // Timestamp "YYYYMMDD HH:MM"
-    lat: string; // Latitude as a string
-    lon: string; // Longitude as a string
-    hdg?: string; // Heading in degrees
-    pid?: number; // Pattern ID
-    pdist?: number; // Distance travelled along pattern (feet)
-    dly?: boolean; // Delay flag
-    spd?: number; // Speed in mph
-    tablockid?: string; // Block identifier
-    tatripid?: string; // Trip ID (string form)
-    zone?: string; // Fare zone identifier
-    mode?: number; // Mode indicator (0 = bus)
-    psgld?: string; // Passenger load indicator
-    oid?: string; // Operator ID
-    or?: boolean; // Out of route flag
-    blk?: number; // Block number
-    tripid?: number; // Trip identifier (numeric)
-    tripdyn?: number; // Trip dynamics flag
-    rtpidatafeed?: string; // Data feed identifier
-};
-
-/**
- * Response type for GET actrealtime/vehicle?vid={vid}&rt={rt}&tmres={tmres}&callback={callback}&lat={lat}&lng={lng}&searchRadius={searchRadius}
- */
-export type VehiclePositionsResponse = {
-    'bustime-response'?: {
-        vehicle?: Array<BusPositionRaw>;
-    };
 };
 
 /**
@@ -172,11 +98,14 @@ class ACTRealtimeService {
             });
         }
 
-        const data: BusStopApiResponse = (await response.json()) as BusStopApiResponse;
+        const json = await response.json();
+        const parsed = BusStopApiResponseSchema.safeParse(json);
+        if (!parsed.success) {
+            return profiles;
+        }
 
-        // Navigate through the nested response structure
-        const stops = data?.['bustime-response']?.stops;
-        if (!stops || stops.length === 0) {
+        const stops = parsed.data['bustime-response'].stops;
+        if (stops.length === 0) {
             return profiles;
         }
 
@@ -266,15 +195,26 @@ class ACTRealtimeService {
             });
         }
 
-        const data: BusStopPredictionsResponse = (await response.json()) as BusStopPredictionsResponse;
-
-        if (data) {
-            const predictions = data['bustime-response']?.prd;
-            stopCodes.forEach((stopCode) => {
-                predictionsMap[stopCode] =
-                    predictions && Array.isArray(predictions) ? predictions.filter((p) => p.stpid === stopCode) : [];
-            });
+        const json = await response.json();
+        const parsed = BusStopPredictionsResponseSchema.safeParse(json);
+        if (!parsed.success) {
+            return predictionsMap;
         }
+
+        const predictions = parsed.data['bustime-response'].prd;
+
+        // If API returns `prd: null`, ensure we return empty arrays per requested stop
+        if (predictions === null) {
+            stopCodes.forEach((stopCode) => {
+                predictionsMap[stopCode] = [];
+            });
+            return predictionsMap;
+        }
+
+        // Otherwise, filter predictions by stop code
+        stopCodes.forEach((stopCode) => {
+            predictionsMap[stopCode] = predictions.filter((p) => p.stpid === stopCode);
+        });
 
         return predictionsMap;
     }
@@ -342,18 +282,16 @@ class ACTRealtimeService {
                 throw new Error(`HTTP error fetching system time! status: ${response.status}`);
             }
 
-            const data: SystemTimeResponse = (await response.json()) as SystemTimeResponse;
-            const rawTimestamp = data?.['bustime-response']?.tm;
-
-            if (!rawTimestamp) {
-                throw new Error('AC Transit system time response missing timestamp');
+            const json = await response.json();
+            const parsed = SystemTimeResponseSchema.safeParse(json);
+            if (!parsed.success) {
+                const msg = parsed.error.issues[0]?.message;
+                const message = msg?.startsWith('Invalid AC Transit system time value')
+                    ? msg
+                    : 'AC Transit system time response missing timestamp';
+                throw new Error(message);
             }
-
-            timestampMs = Number.parseInt(rawTimestamp, 10);
-
-            if (Number.isNaN(timestampMs) || timestampMs <= 0) {
-                throw new Error(`Invalid AC Transit system time value: ${rawTimestamp}`);
-            }
+            timestampMs = parsed.data['bustime-response'].tm;
         } catch (error) {
             // Fallback to server time on error
             timestampMs = now;
@@ -392,8 +330,12 @@ class ACTRealtimeService {
             });
         }
 
-        const data: VehiclePositionsResponse = (await response.json()) as VehiclePositionsResponse;
-        const vehicles = data?.['bustime-response']?.vehicle;
+        const json = await response.json();
+        const parsed = VehiclePositionsResponseSchema.safeParse(json);
+        if (!parsed.success) {
+            return [];
+        }
+        const vehicles = parsed.data?.['bustime-response']?.vehicle;
 
         if (!vehicles || vehicles.length === 0) {
             return [];

@@ -7,14 +7,9 @@ import {
     createMockBusStopPredictionRaw,
     createMockBusPositionRaw,
     createMockVehiclePositionsResponse,
-    createMockSystemTimeResponse,
 } from '../__mocks__/actRealtimeResponses.js';
-import {
-    createACTRealtimeService,
-    type ActRealtimeServiceDependencies,
-    type BusStopProfileRaw,
-    type BusStopPredictionRaw,
-} from '../actRealtime.js';
+import { createACTRealtimeService, type ActRealtimeServiceDependencies } from '../actRealtime.js';
+import type { BusStopProfileRaw, BusStopPredictionRaw } from '../actRealtime.schemas.js';
 
 const defaultDependencies: ActRealtimeServiceDependencies = {
     fetchWithUrlParams: vi.fn(),
@@ -72,6 +67,41 @@ describe('ACT Realtime Service', () => {
             const mockFetch = vi.fn().mockResolvedValue({
                 ok: true,
                 json: vi.fn().mockResolvedValue(mockResponse),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchBusStopProfiles(['50373']);
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual({});
+        });
+
+        it('returns empty profiles when response shape is missing bustime-response', async () => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue({}),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchBusStopProfiles(['50373']);
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual({});
+        });
+
+        it.each([
+            { description: 'missing', payload: { 'bustime-response': {} } },
+            { description: 'invalid type', payload: { 'bustime-response': { stops: 'not-an-array' } } },
+        ])('returns empty profiles when stops field is $description', async ({ payload }) => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue(payload),
             });
             const service = createACTRealtimeService({
                 ...defaultDependencies,
@@ -175,19 +205,50 @@ describe('ACT Realtime Service', () => {
             await expect(service.fetchBusStopPredictions(['50373'])).rejects.toThrow('HTTP error! status: 500');
             expect(mockFetch).toHaveBeenCalledTimes(1);
         });
+
+        it('returns empty predictions map when response shape is missing bustime-response', async () => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue({}),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchBusStopPredictions(['50373']);
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual({});
+        });
+
+        it('returns empty predictions map when prd field is invalid type', async () => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue({ 'bustime-response': { prd: 'not-an-array' } }),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchBusStopPredictions(['50373']);
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual({});
+        });
     });
 
     describe('fetch system time', () => {
         it('fetches system time', async () => {
             const mockDate = new Date('2023-10-10T12:34:00-07:00');
-            const mockResponse = createMockSystemTimeResponse({
-                'bustime-response': {
-                    tm: mockDate.getTime().toString(),
-                },
-            });
             const mockFetch = vi.fn().mockResolvedValue({
                 ok: true,
-                json: vi.fn().mockResolvedValue(mockResponse),
+                json: vi.fn().mockResolvedValue({
+                    'bustime-response': {
+                        tm: mockDate.getTime().toString(),
+                    },
+                }),
             });
             const service = createACTRealtimeService({
                 ...defaultDependencies,
@@ -251,14 +312,13 @@ describe('ACT Realtime Service', () => {
                 const mockDate = new Date('2023-10-10T12:00:00-07:00');
                 vi.setSystemTime(mockDate);
 
-                const mockResponse = createMockSystemTimeResponse({
-                    'bustime-response': {
-                        tm: rawTimestamp,
-                    },
-                });
                 const mockFetch = vi.fn().mockResolvedValue({
                     ok: true,
-                    json: vi.fn().mockResolvedValue(mockResponse),
+                    json: vi.fn().mockResolvedValue({
+                        'bustime-response': {
+                            tm: rawTimestamp,
+                        },
+                    }),
                 });
                 const service = createACTRealtimeService({
                     ...defaultDependencies,
@@ -276,6 +336,33 @@ describe('ACT Realtime Service', () => {
                 vi.useRealTimers();
             }
         );
+
+        it('handles invalid response shape (missing bustime-response) and defaults to server local time', async () => {
+            vi.useFakeTimers();
+            const mockDate = new Date('2023-10-10T12:00:00-07:00');
+            vi.setSystemTime(mockDate);
+
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue({}),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+            const response = await service.fetchSystemTime();
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual(mockDate);
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Error fetching AC Transit system time: AC Transit system time response missing timestamp'
+            );
+
+            errorSpy.mockRestore();
+            vi.useRealTimers();
+        });
     });
 
     describe('fetch bus vehicle positions', () => {
@@ -330,6 +417,38 @@ describe('ACT Realtime Service', () => {
             const mockFetch = vi.fn().mockResolvedValue({
                 ok: true,
                 json: vi.fn().mockResolvedValue(mockResponse),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchVehiclePositions('51B');
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual([]);
+        });
+
+        it('returns empty array when response shape is invalid (non-object)', async () => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue(null),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchVehiclePositions('51B');
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual([]);
+        });
+
+        it('returns empty array when bustime-response is invalid type', async () => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue({ 'bustime-response': 'invalid' }),
             });
             const service = createACTRealtimeService({
                 ...defaultDependencies,

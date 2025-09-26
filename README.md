@@ -6,7 +6,7 @@ Unified GraphQL Yoga server merging multiple internal services into a single sch
 
 - GraphQL Yoga for the server runtime and schema composition
 - TypeScript for end-to-end type safety
-- Zod for runtime validation of environment configuration and client inputs
+- Zod for runtime validation of environment configuration, client inputs, and API responses
 - Vitest for unit and integration tests
 - Husky + lint-staged running ESLint, Prettier, and TypeScript type checks on staged files
 - graphql-codegen for generating TypeScript types based off schema
@@ -36,6 +36,8 @@ Unified GraphQL Yoga server merging multiple internal services into a single sch
 
 - Husky enforces the `pre-commit` hook; lint-staged limits ESLint, Prettier, and type checking to staged files. Will also automatically run codegen if schema files are staged.
 - Use Zod schemas to guard any new resolver inputs or configuration before exposing them to the merged graph.
+- Use Zod schemas to validate any external API responses before using them in resolvers.
+- Use dependency injection for services to make testing easier.
 - When fetching from external services, use HybridCache (src/utils/cache.ts) for caching the fetched values either in-memory or in a redis server.
 - Use mock factories for Yoga client, context, and env vars in src/mocks for tests
 

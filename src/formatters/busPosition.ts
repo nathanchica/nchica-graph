@@ -1,6 +1,6 @@
 import { transit_realtime } from 'gtfs-realtime-bindings';
 
-import type { BusPositionRaw } from '../services/actRealtime.js';
+import type { BusPositionRaw } from '../services/actRealtime.schemas.js';
 import { parseActRealtimeTimestamp } from '../utils/datetime.js';
 
 // https://en.wikipedia.org/wiki/Miles_per_hour
