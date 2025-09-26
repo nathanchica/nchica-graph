@@ -6,9 +6,13 @@ import { useServer } from 'graphql-ws/use/ws';
 import { createYoga } from 'graphql-yoga';
 import { WebSocketServer } from 'ws';
 
-import { createContext, type GraphQLContext } from './context.js';
+import { createContextFactory, type GraphQLContext } from './context.js';
 import { env } from './env.js';
 import { schema } from './schema/index.js';
+import { createACTRealtimeService } from './services/actRealtime.js';
+import { createGTFSRealtimeService } from './services/gtfsRealtime.js';
+import { getCachedOrFetch } from './utils/cache.js';
+import { fetchWithUrlParams } from './utils/fetch.js';
 
 const YOGA_EXECUTE_SYMBOL = Symbol('yoga.execute');
 const YOGA_SUBSCRIBE_SYMBOL = Symbol('yoga.subscribe');
@@ -18,9 +22,34 @@ type YogaRootValue = {
     [YOGA_SUBSCRIBE_SYMBOL]: typeof graphqlSubscribe;
 };
 
+const services = {
+    actRealtime: createACTRealtimeService({
+        fetchWithUrlParams,
+        apiToken: env.AC_TRANSIT_TOKEN,
+        apiBaseUrl: env.ACT_REALTIME_API_BASE_URL,
+        cacheTtl: {
+            busStopProfiles: env.WHERE_IS_51B_CACHE_TTL_BUS_STOP_PROFILES,
+            predictions: env.WHERE_IS_51B_CACHE_TTL_PREDICTIONS,
+            vehiclePositions: env.WHERE_IS_51B_CACHE_TTL_VEHICLE_POSITIONS,
+        },
+        getCachedOrFetch,
+    }),
+    gtfsRealtime: createGTFSRealtimeService({
+        fetchWithUrlParams,
+        apiToken: env.AC_TRANSIT_TOKEN,
+        apiBaseUrl: env.GTFS_REALTIME_API_BASE_URL,
+        cacheTtl: {
+            vehiclePositions: env.WHERE_IS_51B_CACHE_TTL_VEHICLE_POSITIONS,
+            tripUpdates: env.WHERE_IS_51B_CACHE_TTL_PREDICTIONS,
+            serviceAlerts: env.WHERE_IS_51B_CACHE_TTL_SERVICE_ALERTS,
+        },
+        getCachedOrFetch,
+    }),
+};
+
 const yoga = createYoga<GraphQLContext>({
     schema,
-    context: createContext,
+    context: createContextFactory(services),
     maskedErrors: env.NODE_ENV === 'production',
     graphiql: env.NODE_ENV !== 'production',
 });
