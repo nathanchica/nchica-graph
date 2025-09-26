@@ -435,5 +435,37 @@ describe('ACT Realtime Service', () => {
             expect(mockFetch).toHaveBeenCalledTimes(1);
             expect(response).toEqual([]);
         });
+
+        it('returns empty array when response shape is invalid (non-object)', async () => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue(null),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchVehiclePositions('51B');
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual([]);
+        });
+
+        it('returns empty array when bustime-response is invalid type', async () => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue({ 'bustime-response': 'invalid' }),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchVehiclePositions('51B');
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual([]);
+        });
     });
 });

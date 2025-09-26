@@ -152,6 +152,24 @@ export type VehiclePositionsResponse = {
     };
 };
 
+const BusPositionRawSchema = z.looseObject({
+    vid: z.string(),
+    rt: z.string(),
+    tmstmp: z.string(),
+    lat: z.union([z.string(), z.number()]).transform((v) => String(v)),
+    lon: z.union([z.string(), z.number()]).transform((v) => String(v)),
+    hdg: z.union([z.string(), z.number()]).optional(),
+    spd: z.union([z.string(), z.number()]).optional(),
+    tatripid: z.string().optional(),
+    tripid: z.coerce.number().optional(),
+});
+
+const VehiclePositionsResponseSchema = z.looseObject({
+    'bustime-response': z.looseObject({
+        vehicle: z.array(BusPositionRawSchema).optional(),
+    }),
+});
+
 /**
  * ACT Realtime Service
  * Handles fetching data from AC Transit's proprietary REST API
@@ -451,8 +469,12 @@ class ACTRealtimeService {
             });
         }
 
-        const data: VehiclePositionsResponse = (await response.json()) as VehiclePositionsResponse;
-        const vehicles = data?.['bustime-response']?.vehicle;
+        const json = await response.json();
+        const parsed = VehiclePositionsResponseSchema.safeParse(json);
+        if (!parsed.success) {
+            return [];
+        }
+        const vehicles = parsed.data?.['bustime-response']?.vehicle as Array<BusPositionRaw> | undefined;
 
         if (!vehicles || vehicles.length === 0) {
             return [];
