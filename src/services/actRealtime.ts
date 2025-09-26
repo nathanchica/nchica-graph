@@ -335,7 +335,7 @@ class ACTRealtimeService {
         if (!parsed.success) {
             return [];
         }
-        const vehicles = parsed.data?.['bustime-response']?.vehicle as Array<BusPositionRaw> | undefined;
+        const vehicles = parsed.data?.['bustime-response']?.vehicle;
 
         if (!vehicles || vehicles.length === 0) {
             return [];
