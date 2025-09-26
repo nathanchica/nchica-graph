@@ -18,21 +18,13 @@ export const createMockBusStopProfileRaw = (overrides?: Partial<BusStopProfileRa
 });
 
 export const createMockBusStopPredictionRaw = (overrides?: Partial<BusStopPredictionRaw>): BusStopPredictionRaw => ({
-    tmstmp: '20240930 08:15',
-    typ: 'A',
-    stpnm: 'Broadway & 20th St',
     stpid: '50373',
     vid: '1234',
     dstp: 600,
-    rt: '51A',
-    rtdd: '51A Broadway',
     rtdir: 'Northbound',
-    des: 'Rockridge BART',
     prdtm: '20240930 08:17',
     tatripid: 'TRIP123456',
     prdctdn: '2',
-    schdtm: '20240930 08:20',
-    seq: 15,
     ...overrides,
 });
 

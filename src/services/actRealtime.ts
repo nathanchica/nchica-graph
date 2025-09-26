@@ -30,6 +30,14 @@ export type BusStopProfileRaw = {
     lon: number;
 };
 
+const BusStopProfileRawSchema = z.looseObject({
+    stpid: z.string(),
+    stpnm: z.string(),
+    geoid: z.string(),
+    lat: z.coerce.number(),
+    lon: z.coerce.number(),
+});
+
 /**
  * Response type for GET actrealtime/stop?rt={rt}&dir={dir}&stpid={stpid}&callback={callback}
  */
@@ -39,23 +47,31 @@ export type BusStopApiResponse = {
     };
 };
 
+const BusStopApiResponseSchema = z.looseObject({
+    'bustime-response': z.looseObject({
+        stops: z.array(BusStopProfileRawSchema),
+    }),
+});
+
 export type BusStopPredictionRaw = {
-    tmstmp: string; // "20250918 05:55"
-    typ: string; // "A" for arrival, "D" for departure
-    stpnm: string; // Stop name
     stpid: string; // Stop ID (5-digit stop code, not GTFS stop_id)
     vid: string; // Vehicle ID
     dstp: number; // Distance to stop (in feet)
-    rt: string; // Route (e.g., "51B")
-    rtdd: string; // Route display
     rtdir: string; // Route direction description
-    des: string; // Destination
-    prdtm: string; // Predicted time "20250918 05:54"
+    prdtm: string; // Predicted time "YYYYMMDD HH:MM"
     tatripid: string; // Trip ID
     prdctdn: string; // Countdown - "Due" or number of minutes
-    schdtm: string; // Scheduled time
-    seq: number; // Stop sequence
 };
+
+const BusStopPredictionRawSchema = z.looseObject({
+    stpid: z.string(),
+    vid: z.string(),
+    dstp: z.coerce.number(),
+    rtdir: z.string(),
+    prdtm: z.string(),
+    tatripid: z.string(),
+    prdctdn: z.string(),
+});
 
 /**
  * Response type for GET actrealtime/prediction?stpid={stpid}&rt={rt}&vid={vid}&top={top}&tmres={tmres}&callback={callback}&showocprd={showocprd}
@@ -66,14 +82,20 @@ export type BusStopPredictionsResponse = {
     };
 };
 
+const BusStopPredictionsResponseSchema = z.looseObject({
+    'bustime-response': z.looseObject({
+        prd: z.array(BusStopPredictionRawSchema).nullable(),
+    }),
+});
+
 export type SystemTimeResponse = {
     'bustime-response'?: {
         tm?: string;
     };
 };
 
-const SystemTimeResponseSchema = z.object({
-    'bustime-response': z.object({
+const SystemTimeResponseSchema = z.looseObject({
+    'bustime-response': z.looseObject({
         tm: z.string().transform((s, ctx) => {
             const trimmed = s?.trim?.();
             if (!trimmed) {
@@ -197,11 +219,14 @@ class ACTRealtimeService {
             });
         }
 
-        const data: BusStopApiResponse = (await response.json()) as BusStopApiResponse;
+        const json = await response.json();
+        const parsed = BusStopApiResponseSchema.safeParse(json);
+        if (!parsed.success) {
+            return profiles;
+        }
 
-        // Navigate through the nested response structure
-        const stops = data?.['bustime-response']?.stops;
-        if (!stops || stops.length === 0) {
+        const stops = parsed.data['bustime-response'].stops;
+        if (stops.length === 0) {
             return profiles;
         }
 
@@ -291,15 +316,26 @@ class ACTRealtimeService {
             });
         }
 
-        const data: BusStopPredictionsResponse = (await response.json()) as BusStopPredictionsResponse;
-
-        if (data) {
-            const predictions = data['bustime-response']?.prd;
-            stopCodes.forEach((stopCode) => {
-                predictionsMap[stopCode] =
-                    predictions && Array.isArray(predictions) ? predictions.filter((p) => p.stpid === stopCode) : [];
-            });
+        const json = await response.json();
+        const parsed = BusStopPredictionsResponseSchema.safeParse(json);
+        if (!parsed.success) {
+            return predictionsMap;
         }
+
+        const predictions = parsed.data['bustime-response'].prd;
+
+        // If API returns `prd: null`, ensure we return empty arrays per requested stop
+        if (predictions === null) {
+            stopCodes.forEach((stopCode) => {
+                predictionsMap[stopCode] = [];
+            });
+            return predictionsMap;
+        }
+
+        // Otherwise, filter predictions by stop code
+        stopCodes.forEach((stopCode) => {
+            predictionsMap[stopCode] = predictions.filter((p) => p.stpid === stopCode);
+        });
 
         return predictionsMap;
     }
@@ -376,7 +412,7 @@ class ACTRealtimeService {
                     : 'AC Transit system time response missing timestamp';
                 throw new Error(message);
             }
-            timestampMs = parsed.data['bustime-response'].tm; // already a validated number
+            timestampMs = parsed.data['bustime-response'].tm;
         } catch (error) {
             // Fallback to server time on error
             timestampMs = now;

@@ -84,6 +84,41 @@ describe('ACT Realtime Service', () => {
             expect(response).toEqual({});
         });
 
+        it('returns empty profiles when response shape is missing bustime-response', async () => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue({}),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchBusStopProfiles(['50373']);
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual({});
+        });
+
+        it.each([
+            { description: 'missing', payload: { 'bustime-response': {} } },
+            { description: 'invalid type', payload: { 'bustime-response': { stops: 'not-an-array' } } },
+        ])('returns empty profiles when stops field is $description', async ({ payload }) => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue(payload),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchBusStopProfiles(['50373']);
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual({});
+        });
+
         it.each([
             { status: 500, statusText: 'Internal Server Error', expectedErrorMessage: 'HTTP error! status: 500' },
             { status: 404, statusText: 'Not Found', expectedErrorMessage: 'HTTP error! status: 404' },
@@ -174,6 +209,38 @@ describe('ACT Realtime Service', () => {
             });
             await expect(service.fetchBusStopPredictions(['50373'])).rejects.toThrow('HTTP error! status: 500');
             expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+
+        it('returns empty predictions map when response shape is missing bustime-response', async () => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue({}),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchBusStopPredictions(['50373']);
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual({});
+        });
+
+        it('returns empty predictions map when prd field is invalid type', async () => {
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue({ 'bustime-response': { prd: 'not-an-array' } }),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            const response = await service.fetchBusStopPredictions(['50373']);
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual({});
         });
     });
 
@@ -276,6 +343,33 @@ describe('ACT Realtime Service', () => {
                 vi.useRealTimers();
             }
         );
+
+        it('handles invalid response shape (missing bustime-response) and defaults to server local time', async () => {
+            vi.useFakeTimers();
+            const mockDate = new Date('2023-10-10T12:00:00-07:00');
+            vi.setSystemTime(mockDate);
+
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue({}),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+            const response = await service.fetchSystemTime();
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(response).toEqual(mockDate);
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Error fetching AC Transit system time: AC Transit system time response missing timestamp'
+            );
+
+            errorSpy.mockRestore();
+            vi.useRealTimers();
+        });
     });
 
     describe('fetch bus vehicle positions', () => {
