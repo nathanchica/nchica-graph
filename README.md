@@ -114,6 +114,7 @@ Use the generator to scaffold and integrate a new GraphQL type.
     - `src/schema/newType/newType.schema.ts` — Schema with type docstring and a placeholder field.
     - `src/schema/newType/newType.resolver.ts` — Parent type scaffold and placeholder resolver.
     - `src/schema/newType/index.ts` — Exports `<name>Defs` and `<name>Resolvers`.
+    - `src/schema/newType/__tests__/newType.resolver.test.ts` — Test scaffold for resolvers.
 
 3. Automatic integration
 
