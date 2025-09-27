@@ -28,7 +28,11 @@ export const transitSystemResolvers: Resolvers = {
     ACTransitSystem: {
         alias: (parent) => parent.alias ?? 'act',
         name: (parent) => parent.name ?? 'AC Transit',
-        busStop: (_parent, args) => createBusStopParent({ code: args.busStopCode }),
+        busStop: async (_parent, args, { loaders }) => {
+            // check if bus stop exists
+            const busStopProfile = await loaders.busStop.byCode.load(args.busStopCode);
+            return busStopProfile ? createBusStopParent({ code: busStopProfile.code }) : null;
+        },
         busStops: (parent) => parent.busStops ?? [],
     },
     Query: {

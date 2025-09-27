@@ -1,6 +1,6 @@
-import { createBusStopProfile, type BusStopProfile } from '../../formatters/busStop.js';
+import invariant from 'tiny-invariant';
+
 import type { Resolvers } from '../../generated/graphql.js';
-import { type ACTRealtimeServiceType } from '../../services/actRealtime.js';
 
 export type AcTransitBusStopParent = {
     __typename: 'AcTransitBusStop';
@@ -24,20 +24,6 @@ export function createBusStopParent(busStopData: Partial<AcTransitBusStopParent>
     };
 }
 
-async function getBusStopProfile(
-    actRealtimeService: ACTRealtimeServiceType,
-    busStopCode: string
-): Promise<BusStopProfile> {
-    const profiles = await actRealtimeService.fetchBusStopProfiles([busStopCode]);
-    const rawProfile = profiles[busStopCode];
-
-    if (!rawProfile) {
-        throw new Error(`No profile found for stop code ${busStopCode}`);
-    }
-
-    return createBusStopProfile(rawProfile);
-}
-
 export const busStopResolvers: Resolvers = {
     BusStop: {
         /* v8 ignore start - Practically unreachable by query */
@@ -50,7 +36,7 @@ export const busStopResolvers: Resolvers = {
         /* v8 ignore stop */
     },
     AcTransitBusStop: {
-        id: async (parent, _args, { services }) => {
+        id: async (parent, _args, { loaders }) => {
             // If id is already available, return it
             /* v8 ignore start - No implementation that returns full parent objects */
             if (parent.id) {
@@ -59,8 +45,9 @@ export const busStopResolvers: Resolvers = {
             /* v8 ignore stop */
 
             try {
-                const { id } = await getBusStopProfile(services.actRealtime, parent.code);
-                return id;
+                const busStopProfile = await loaders.busStop.byCode.load(parent.code);
+                invariant(busStopProfile, 'Expected bus stop profile to be non-null when resolving id');
+                return busStopProfile.id;
             } catch (error) {
                 throw new Error(
                     `Failed to fetch stop_id for code ${parent.code}: ${error instanceof Error ? error.message /* v8 ignore next*/ : 'Unknown error'}`
@@ -80,7 +67,7 @@ export const busStopResolvers: Resolvers = {
             /* v8 ignore stop */
         },
 
-        name: async (parent, _args, { services }) => {
+        name: async (parent, _args, { loaders }) => {
             // If name is already available, return it
             /* v8 ignore start - No implementation that returns full parent objects */
             if (parent.name) {
@@ -89,8 +76,9 @@ export const busStopResolvers: Resolvers = {
             /* v8 ignore stop */
 
             try {
-                const { name } = await getBusStopProfile(services.actRealtime, parent.code);
-                return name;
+                const busStopProfile = await loaders.busStop.byCode.load(parent.code);
+                invariant(busStopProfile, 'Expected bus stop profile to be non-null when resolving name');
+                return busStopProfile.name;
             } catch (error) {
                 throw new Error(
                     `Failed to fetch stop name for code ${parent.code}: ${error instanceof Error ? error.message /* v8 ignore next*/ : 'Unknown error'}`
@@ -98,7 +86,7 @@ export const busStopResolvers: Resolvers = {
             }
         },
 
-        latitude: async (parent, _args, { services }) => {
+        latitude: async (parent, _args, { loaders }) => {
             // If latitude is already available, return it
             /* v8 ignore start - No implementation that returns full parent objects */
             if (parent.latitude) {
@@ -107,8 +95,9 @@ export const busStopResolvers: Resolvers = {
             /* v8 ignore stop */
 
             try {
-                const { latitude } = await getBusStopProfile(services.actRealtime, parent.code);
-                return latitude;
+                const busStopProfile = await loaders.busStop.byCode.load(parent.code);
+                invariant(busStopProfile, 'Expected bus stop profile to be non-null when resolving latitude');
+                return busStopProfile.latitude;
             } catch (error) {
                 throw new Error(
                     `Failed to fetch latitude for code ${parent.code}: ${error instanceof Error ? error.message /* v8 ignore next*/ : 'Unknown error'}`
@@ -116,7 +105,7 @@ export const busStopResolvers: Resolvers = {
             }
         },
 
-        longitude: async (parent, _args, { services }) => {
+        longitude: async (parent, _args, { loaders }) => {
             // If longitude is already available, return it
             /* v8 ignore start - No implementation that returns full parent objects */
             if (parent.longitude) {
@@ -125,8 +114,9 @@ export const busStopResolvers: Resolvers = {
             /* v8 ignore stop */
 
             try {
-                const { longitude } = await getBusStopProfile(services.actRealtime, parent.code);
-                return longitude;
+                const busStopProfile = await loaders.busStop.byCode.load(parent.code);
+                invariant(busStopProfile, 'Expected bus stop profile to be non-null when resolving longitude');
+                return busStopProfile.longitude;
             } catch (error) {
                 throw new Error(
                     `Failed to fetch longitude for code ${parent.code}: ${error instanceof Error ? error.message /* v8 ignore next*/ : 'Unknown error'}`

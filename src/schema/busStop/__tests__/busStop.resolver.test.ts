@@ -30,18 +30,19 @@ describe('busStopResolvers', () => {
                 }
             }
         `;
+        const mockBusStopCode = '12345';
+        const mockBusStopProfileRaw = createMockBusStopProfileRaw({
+            geoid: 'GTFS_STOP_123',
+            stpid: mockBusStopCode,
+        });
 
         it('resolves each field', async () => {
-            const mockBusStopCode = '12345';
-            const mockBusStopProfileRaw = createMockBusStopProfileRaw({
-                geoid: 'GTFS_STOP_123',
-                stpid: mockBusStopCode,
-            });
             const mockBusStopProfile = createBusStopProfile(mockBusStopProfileRaw);
+            const mockFetch = vi.fn().mockResolvedValue({
+                [mockBusStopCode]: mockBusStopProfileRaw,
+            });
             const mockActRealtimeService = createMockACTRealtimeService({
-                fetchBusStopProfiles: vi.fn().mockResolvedValue({
-                    [mockBusStopCode]: mockBusStopProfileRaw,
-                }),
+                fetchBusStopProfiles: mockFetch,
             });
             const mockContext = createMockContext({
                 services: {
@@ -61,6 +62,7 @@ describe('busStopResolvers', () => {
                     busStop: mockBusStopProfile,
                 },
             });
+            expect(mockFetch).toHaveBeenCalledTimes(1);
         });
 
         it.each([
@@ -121,10 +123,9 @@ describe('busStopResolvers', () => {
                 `,
             },
         ])('returns an error when fetching $field fails and nulls busStop', async ({ query }) => {
-            const mockBusStopCode = '12345';
-            const fetchMock = vi.fn().mockRejectedValue(new Error('Upstream failure'));
+            const mockFetch = vi.fn().mockRejectedValue(new Error('Upstream failure'));
             const mockActRealtimeService = createMockACTRealtimeService({
-                fetchBusStopProfiles: fetchMock,
+                fetchBusStopProfiles: mockFetch,
             });
             const mockContext = createMockContext({
                 services: {
@@ -150,7 +151,6 @@ describe('busStopResolvers', () => {
         });
 
         it('handles missing bus stop profile gracefully and nulls busStop', async () => {
-            const mockBusStopCode = '12345';
             const mockActRealtimeService = createMockACTRealtimeService({
                 fetchBusStopProfiles: vi.fn().mockResolvedValue({}),
             });
@@ -172,13 +172,7 @@ describe('busStopResolvers', () => {
                 },
             });
 
-            expect(errors).toBeDefined();
-            expect(errors).toHaveLength(1);
-            expect(errors).toEqual([
-                expect.objectContaining({
-                    message: expect.stringContaining('Unexpected error'),
-                }),
-            ]);
+            expect(errors).toBeUndefined();
         });
     });
 });

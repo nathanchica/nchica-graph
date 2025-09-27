@@ -1,6 +1,7 @@
 import { createMockEnv } from './env.js';
 
 import type { GraphQLContext } from '../context.js';
+import { createBusStopByCodeLoader } from '../loaders/busStop.js';
 import { createACTRealtimeService } from '../services/actRealtime.js';
 import { createGTFSRealtimeService } from '../services/gtfsRealtime.js';
 import { getCachedOrFetch } from '../utils/cache.js';
@@ -43,13 +44,27 @@ export const createMockContext = (overrides?: Partial<GraphQLContext>): GraphQLC
         getCachedOrFetch,
     });
 
+    // Allow tests to override services; build loaders from the final services
+    const { services: overrideServices, loaders: overrideLoaders, ...restOverrides } = overrides ?? {};
+    const services = {
+        actRealtime,
+        gtfsRealtime,
+        ...overrideServices,
+    } as GraphQLContext['services'];
+
+    const defaultLoaders: GraphQLContext['loaders'] = {
+        busStop: {
+            byCode: createBusStopByCodeLoader(services.actRealtime),
+        },
+    };
+
+    const loaders = (overrideLoaders ?? defaultLoaders) as GraphQLContext['loaders'];
+
     return {
         request: defaultRequest,
         env: mockEnv,
-        services: {
-            actRealtime,
-            gtfsRealtime,
-        },
-        ...overrides,
+        services,
+        loaders,
+        ...restOverrides,
     } as GraphQLContext;
 };
