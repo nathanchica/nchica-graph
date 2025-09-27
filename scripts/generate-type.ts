@@ -71,6 +71,26 @@ export { ${resolversConst} } from './${camelName}.resolver.js';
 `;
 }
 
+function makeTestContent(typeName: string, camelName: string): string {
+    return `import { createTestClient, type TestGraphQLClient } from '../../../mocks/client.js';
+
+describe('${camelName}Resolvers', () => {
+    let client: TestGraphQLClient;
+
+    beforeEach(() => {
+        client = createTestClient();
+    });
+
+    describe('${typeName}.placeholder', () => {
+        it('resolves', async () => {
+            console.log('TODO: implement ${camelName}Resolvers tests', client);
+            return; // TODO
+        });
+    });
+});
+`;
+}
+
 async function ensureDir(dir: string) {
     try {
         await fs.mkdir(dir, { recursive: false });
@@ -221,23 +241,28 @@ async function main() {
         const schemaPath = path.join(baseDir, `${camelName}.schema.ts`);
         const resolverPath = path.join(baseDir, `${camelName}.resolver.ts`);
         const indexPath = path.join(baseDir, `index.ts`);
+        const testsDir = path.join(baseDir, '__tests__');
+        const testPath = path.join(testsDir, `${camelName}.resolver.test.ts`);
 
         await ensureDir(baseDir);
+        await ensureDir(testsDir);
 
         const schemaContent = makeSchemaContent(typeName, typeDescription, camelName);
         const resolverContent = makeResolverContent(typeName, camelName);
         const indexContent = makeIndexContent(camelName);
+        const testContent = makeTestContent(typeName, camelName);
 
         await fs.writeFile(schemaPath, schemaContent, 'utf8');
         await fs.writeFile(resolverPath, resolverContent, 'utf8');
         await fs.writeFile(indexPath, indexContent, 'utf8');
+        await fs.writeFile(testPath, testContent, 'utf8');
 
         await integrateIntoSchemaIndex(camelName);
 
         const schemaIndexPath = path.join('src', 'schema', 'index.ts');
-        await formatAndLint([schemaPath, resolverPath, indexPath, schemaIndexPath]);
+        await formatAndLint([schemaPath, resolverPath, indexPath, testPath, schemaIndexPath]);
 
-        console.log(`\nCreated:\n- ${schemaPath}\n- ${resolverPath}\n- ${indexPath}`);
+        console.log(`\nCreated:\n- ${schemaPath}\n- ${resolverPath}\n- ${indexPath}\n- ${testPath}`);
         console.log(`Integrated into src/schema/index.ts (imports, typeDefs, resolvers).`);
         console.log('\nOptional next step:\n- Run `pnpm codegen` to refresh TS types.');
     } finally {
