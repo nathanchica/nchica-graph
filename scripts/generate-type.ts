@@ -1,3 +1,7 @@
+/**
+ * Script to scaffold a new GraphQL type with schema, resolver, and index files.
+ */
+
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
