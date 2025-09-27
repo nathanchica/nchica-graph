@@ -13,7 +13,7 @@ export interface SubscriptionCollectOptions {
 
 export type GraphQLExecutionResult<TData = unknown> = {
     data?: TData;
-    errors?: unknown;
+    errors?: unknown[];
     extensions?: unknown;
     hasNext?: boolean;
     incremental?: unknown;

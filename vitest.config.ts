@@ -19,6 +19,7 @@ export default defineConfig({
                 'codegen.ts',
                 'graphql.config.js',
                 'src/**/__mocks__/**',
+                'scripts/**',
             ],
         },
         setupFiles: ['./src/testSetup.ts'],
