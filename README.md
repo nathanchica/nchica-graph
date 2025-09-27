@@ -97,9 +97,46 @@ Unified GraphQL Yoga server merging multiple internal services into a single sch
 
 #### New schema types and resolvers
 
-- Create new directory under `src/schema`
-- Create schema (typeDefs) in `src/schema/new-type-name/new-type-name.schema.ts`
-- Create resolvers in `src/schema/new-type-name/new-type-name.resolvers.ts`
-- Create index file to export schema and resolvers in `src/schema/new-type-name/index.ts`
-- Import new schema and resolvers in `src/schema/index.ts`
-- Run codegen `pnpm codegen` to generate types
+Use the generator to scaffold and integrate a new GraphQL type.
+
+1. Run the generator
+
+    ```bash
+    pnpm generate:type
+    ```
+
+    - Enter the Type name in PascalCase (e.g., `NewType`).
+    - Enter a short description for the type (used in GraphQL docstrings).
+
+2. What it creates
+
+    For `NewType`, the generator creates:
+    - `src/schema/newType/newType.schema.ts` — Schema with type docstring and a placeholder field.
+    - `src/schema/newType/newType.resolver.ts` — Parent type scaffold and placeholder resolver.
+    - `src/schema/newType/index.ts` — Exports `<name>Defs` and `<name>Resolvers`.
+
+3. Automatic integration
+
+    The generator updates `src/schema/index.ts` to:
+    - Add an import: `import { newTypeDefs, newTypeResolvers } from './newType/index.js';`
+    - Append `newTypeDefs` to `mergeTypeDefs([...])`.
+    - Insert `newTypeResolvers` in the Domain-specific resolvers block before `rootResolvers`.
+    - Alphabetize the list of typeDefs (keeping `rootTypeDefs` first) and domain resolvers.
+
+4. Formatting and linting
+
+    After scaffolding, it runs Prettier and ESLint on the new files and `src/schema/index.ts`.
+
+5. Next steps (manual)
+    - Replace the placeholder field with real fields and ensure every type/field has a GraphQL docstring.
+    - Flesh out the parent type and resolvers; implement any data fetching needed.
+    - If the new type should be reachable from `Query`, `Mutation`, or `Subscription`, update the root schema/resolvers accordingly.
+    - When the schema is valid, run `pnpm codegen` to refresh generated TypeScript types.
+
+Notes
+
+- If a directory for the chosen type already exists, the generator will exit to avoid overwriting; remove the directory or choose another name.
+- The generator doesn’t execute codegen automatically because freshly scaffolded types may not be valid yet.
+- ESLint may report `@graphql-eslint/no-unreachable-types` for the new type until it is reachable from
+  `Query`, `Mutation`, `Subscription`, or another type. This is expected. Even if ESLint exits with a non‑zero code, it
+  still applies autofixes such as import ordering to the changed files.
