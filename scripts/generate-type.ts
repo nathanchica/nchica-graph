@@ -8,6 +8,8 @@ import path from 'node:path';
 import { stdin as input, stdout as output } from 'node:process';
 import { createInterface } from 'node:readline/promises';
 
+import invariant from 'tiny-invariant';
+
 function toPascalCase(value: string): string {
     const words = value
         .trim()
@@ -102,6 +104,56 @@ async function ensureDir(dir: string) {
     }
 }
 
+async function updateCodegenMappers(typeName: string, camelName: string) {
+    const codegenPath = 'codegen.ts';
+    let content = await fs.readFile(codegenPath, 'utf8');
+
+    const mapperKey = typeName;
+    const mapperValue = `../schema/${camelName}/${camelName}.resolver.js#${typeName}Parent`;
+
+    // Find the mappers object within the codegen config
+    const mappersLabelIdx = content.indexOf('mappers:');
+    invariant(mappersLabelIdx !== -1, 'Could not find mappers: label in codegen.ts');
+
+    // Locate the opening brace for mappers
+    const openBraceIdx = content.indexOf('{', mappersLabelIdx);
+    invariant(openBraceIdx !== -1, 'Malformed codegen.ts: missing "{" after mappers:');
+
+    // Find matching closing brace by simple brace counting
+    let index = openBraceIdx + 1;
+    let depth = 1;
+    while (index < content.length && depth > 0) {
+        const char = content[index];
+        if (char === '{') depth++;
+        else if (char === '}') depth--;
+        index++;
+    }
+    if (depth !== 0) throw new Error('Malformed codegen.ts: unmatched braces in mappers block');
+
+    const closeBraceIdx = index - 1; // index of the closing '}'
+    const mappersBody = content.slice(openBraceIdx + 1, closeBraceIdx);
+
+    // Parse existing entries robustly: match key: 'value' pairs across single/multi-line
+    const entries = new Map<string, string>();
+    const pairRe = /([A-Za-z0-9_]+)\s*:\s*'([^']+)'/g;
+    let match: RegExpExecArray | null;
+    while ((match = pairRe.exec(mappersBody)) !== null) {
+        entries.set(match[1], match[2]);
+    }
+
+    // Insert or update the new mapper
+    entries.set(mapperKey, mapperValue);
+
+    // Sort keys alphabetically
+    const sortedKeys = Array.from(entries.keys()).sort((a, b) => a.localeCompare(b));
+
+    // Rebuild as a single line; Prettier will format later
+    const singleLine = ' ' + sortedKeys.map((k) => `${k}: '${entries.get(k)}'`).join(', ') + ' ';
+    content = content.slice(0, openBraceIdx + 1) + singleLine + content.slice(closeBraceIdx);
+
+    await fs.writeFile(codegenPath, content, 'utf8');
+}
+
 async function integrateIntoSchemaIndex(camelName: string) {
     const schemaIndexPath = path.join('src', 'schema', 'index.ts');
     let content = await fs.readFile(schemaIndexPath, 'utf8');
@@ -138,8 +190,16 @@ async function integrateIntoSchemaIndex(camelName: string) {
     const resolversMarker = 'const resolvers = mergeResolvers([';
     const resolversIdx = content.indexOf(resolversMarker);
     if (resolversIdx === -1) throw new Error('Could not find resolvers declaration in src/schema/index.ts');
-    const resolversEndIdx = content.indexOf(']);', resolversIdx);
-    if (resolversEndIdx === -1) throw new Error('Could not find end of resolvers merge in src/schema/index.ts');
+    // Support both endings:
+    //   ]) as unknown as IResolvers<any, GraphQLContext>;
+    //   ]);
+    let resolversEndIdx = content.indexOf(']);', resolversIdx);
+    if (resolversEndIdx === -1) {
+        resolversEndIdx = content.indexOf('])', resolversIdx);
+    }
+    if (resolversEndIdx === -1) {
+        throw new Error('Could not find end of resolvers merge in src/schema/index.ts');
+    }
     const resolversSegment = content.slice(resolversIdx, resolversEndIdx);
     if (!resolversSegment.includes(`${camelName}Resolvers`)) {
         let updatedSegment: string;
@@ -180,10 +240,14 @@ function sortTypeDefsAlphabetically(content: string): string {
 }
 
 function sortDomainResolversAlphabetically(content: string): string {
-    const arrayRegex = /const resolvers = mergeResolvers\(\[([\s\S]*?)\]\);/;
+    // Match both styles:
+    //   const resolvers = mergeResolvers([ ... ]);
+    //   const resolvers = mergeResolvers([ ... ]) as unknown as IResolvers<any, GraphQLContext>;
+    const arrayRegex = /const resolvers = mergeResolvers\(\[([\s\S]*?)\]\)([^\n]*;)/;
     const arrayMatch = content.match(arrayRegex);
     if (!arrayMatch) return content;
     const arrayBody = arrayMatch[1];
+    const arraySuffix = arrayMatch[2] ?? ';';
 
     // Find domain-specific block up to rootResolvers
     const domainRegex = /(\/\/ Domain-specific resolvers\s*)([\s\S]*?)(\s*rootResolvers,)/;
@@ -200,7 +264,7 @@ function sortDomainResolversAlphabetically(content: string): string {
     const indent = '    ';
     const rebuilt = domainMatch[1] + sorted.map((n) => `${indent}${n},`).join('\n') + domainMatch[3];
     const newArrayBody = arrayBody.replace(domainRegex, rebuilt);
-    const replacement = `const resolvers = mergeResolvers([${newArrayBody}]);`;
+    const replacement = `const resolvers = mergeResolvers([${newArrayBody}])${arraySuffix}`;
     return content.replace(arrayRegex, replacement);
 }
 
@@ -258,12 +322,14 @@ async function main() {
         await fs.writeFile(testPath, testContent, 'utf8');
 
         await integrateIntoSchemaIndex(camelName);
+        await updateCodegenMappers(typeName, camelName);
 
         const schemaIndexPath = path.join('src', 'schema', 'index.ts');
-        await formatAndLint([schemaPath, resolverPath, indexPath, testPath, schemaIndexPath]);
+        await formatAndLint([schemaPath, resolverPath, indexPath, testPath, schemaIndexPath, 'codegen.ts']);
 
         console.log(`\nCreated:\n- ${schemaPath}\n- ${resolverPath}\n- ${indexPath}\n- ${testPath}`);
         console.log(`Integrated into src/schema/index.ts (imports, typeDefs, resolvers).`);
+        console.log(`Updated codegen mappers for ${typeName} in codegen.ts.`);
         console.log('\nOptional next step:\n- Run `pnpm codegen` to refresh TS types.');
     } finally {
         rl.close();
