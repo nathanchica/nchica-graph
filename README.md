@@ -34,16 +34,19 @@ Unified GraphQL Yoga server merging multiple internal services into a single sch
 
 ## Workflow Notes
 
-- Husky enforces the `pre-commit` hook; lint-staged limits ESLint, Prettier, and type checking to staged files. Will also automatically run codegen if schema files are staged.
+- Husky enforces the `pre-commit` hook; lint-staged limits ESLint, Prettier, and type checking to staged files. Will
+  also automatically run codegen if schema files are staged.
 - Use Zod schemas to guard any new resolver inputs or configuration before exposing them to the merged graph.
 - Use Zod schemas to validate any external API responses before using them in resolvers.
 - Use dependency injection for services to make testing easier.
-- When fetching from external services, use HybridCache (src/utils/cache.ts) for caching the fetched values either in-memory or in a redis server.
+- When fetching from external services, use HybridCache (src/utils/cache.ts) for caching the fetched values either
+  in-memory or in a redis server.
 - Use mock factories for Yoga client, context, and env vars in src/mocks for tests
 
 #### Context & services (DI pattern)
 
-- Services are created once at server startup and injected into the GraphQL context via a factory. This avoids per-request instantiation while keeping testability.
+- Services are created once at server startup and injected into the GraphQL context via a factory. This avoids
+  per-request instantiation while keeping testability.
 - Runtime: `src/server.ts` builds singletons and passes them to the context factory:
 
     ```ts
@@ -93,7 +96,8 @@ Unified GraphQL Yoga server merging multiple internal services into a single sch
         });
     }
     ```
-- Tests: use `src/mocks/context.ts` (and `src/mocks/client.ts`) to get a fully‑formed `GraphQLContext` with mock `env` and real or mocked services; you can pass overrides per operation as needed.
+- Tests: use `src/mocks/context.ts` (and `src/mocks/client.ts`) to get a fully‑formed `GraphQLContext` with mock `env`
+  and real or mocked services; you can pass overrides per operation as needed.
 
 #### New schema types and resolvers
 
@@ -124,6 +128,9 @@ Use the generator to scaffold and integrate a new GraphQL type.
     - Insert `newTypeResolvers` in the Domain-specific resolvers block before `rootResolvers`.
     - Alphabetize the list of typeDefs (keeping `rootTypeDefs` first) and domain resolvers.
 
+    The generator also updates `codegen.ts` to add a mapper for the new type,
+    pointing to the Parent type in the new resolver file.
+
 4. Formatting and linting
 
     After scaffolding, it runs Prettier and ESLint on the new files and `src/schema/index.ts`.
@@ -131,12 +138,14 @@ Use the generator to scaffold and integrate a new GraphQL type.
 5. Next steps (manual)
     - Replace the placeholder field with real fields and ensure every type/field has a GraphQL docstring.
     - Flesh out the parent type and resolvers; implement any data fetching needed.
-    - If the new type should be reachable from `Query`, `Mutation`, or `Subscription`, update the root schema/resolvers accordingly.
+    - If the new type should be reachable from `Query`, `Mutation`, or `Subscription`, update the root schema/resolvers
+      accordingly.
     - When the schema is valid, run `pnpm codegen` to refresh generated TypeScript types.
 
 Notes
 
-- If a directory for the chosen type already exists, the generator will exit to avoid overwriting; remove the directory or choose another name.
+- If a directory for the chosen type already exists, the generator will exit to avoid overwriting;
+  remove the directory or choose another name.
 - The generator doesn’t execute codegen automatically because freshly scaffolded types may not be valid yet.
 - ESLint may report `@graphql-eslint/no-unreachable-types` for the new type until it is reachable from
   `Query`, `Mutation`, `Subscription`, or another type. This is expected. Even if ESLint exits with a non‑zero code, it
