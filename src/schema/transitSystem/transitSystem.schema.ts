@@ -27,11 +27,6 @@ export const transitSystemDefs = /* GraphQL */ `
         Displayable name of the transit system
         """
         name: String!
-
-        """
-        List of all bus stops in the AC Transit system
-        """
-        busStops: [AcTransitBusStop!]!
     }
 
     extend type Query {
