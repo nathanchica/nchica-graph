@@ -1,6 +1,6 @@
 {
     "name": "nchica-graph",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "Unified GraphQL Yoga server merging multiple internal services into a single schema.",
     "type": "module",
     "main": "dist/index.js",
