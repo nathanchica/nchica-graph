@@ -1,10 +1,10 @@
 {
     "name": "nchica-graph",
-    "version": "0.1.0",
-    "description": "Unified GraphQL Yoga server merging multiple internal services into a single schema and Render deployment.",
+    "version": "0.1.1",
+    "description": "Unified GraphQL Yoga server merging multiple internal services into a single schema.",
     "type": "module",
-    "main": "dist/server.js",
-    "types": "dist/server.d.ts",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
     "scripts": {
         "dev": "tsx watch src/server.ts",
         "start": "node dist/server.js",
@@ -14,6 +14,7 @@
         "format": "prettier --write .",
         "test": "vitest run --coverage",
         "prepare": "husky || true",
+        "prepack": "pnpm build",
         "codegen": "graphql-codegen --config codegen.ts",
         "generate:type": "tsx scripts/generate-type.ts"
     },
@@ -45,13 +46,25 @@
         "url": "https://github.com/nathanchica/nchica-graph/issues"
     },
     "homepage": "https://github.com/nathanchica/nchica-graph#readme",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist/**",
+        "README.md"
+    ],
+    "peerDependencies": {
+        "graphql": "^16.11.0"
+    },
     "dependencies": {
         "@graphql-tools/load-files": "^7.0.1",
         "@graphql-tools/merge": "^9.1.1",
         "@graphql-tools/schema": "^10.0.25",
         "dataloader": "^2.2.3",
         "dotenv": "^17.2.2",
-        "graphql": "^16.11.0",
         "graphql-scalars": "^1.24.2",
         "graphql-ws": "^6.0.6",
         "graphql-yoga": "^5.16.0",
@@ -63,6 +76,7 @@
         "zod": "^4.1.11"
     },
     "devDependencies": {
+        "graphql": "^16.11.0",
         "@eslint/js": "^9.36.0",
         "@graphql-codegen/cli": "^6.0.0",
         "@graphql-codegen/typescript": "^5.0.0",
