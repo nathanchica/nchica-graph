@@ -32,6 +32,55 @@ Unified GraphQL Yoga server merging multiple internal services into a single sch
     - `pnpm format` → runs Prettier
     - `pnpm typecheck` → compiles with `tsc --noEmit`
 
+## Use as a Library (Gateway Integration)
+
+This package can be mounted into another server (e.g., Express + Socket.IO) at `/graphql`, while subscriptions are served over the same HTTP server via `graphql-ws`.
+
+Install in your gateway:
+
+```bash
+pnpm add nchica-graph graphql
+```
+
+Mount in Express and attach WebSocket subscriptions:
+
+```ts
+import express from 'express';
+import { createServer } from 'node:http';
+import { createGraphQLServer } from 'nchica-graph';
+
+const app = express();
+
+// Create the GraphQL Yoga handler and WS registrar
+const { yoga, registerWs } = createGraphQLServer({ graphqlEndpoint: '/graphql' });
+
+// IMPORTANT: Mount Yoga before generic body parsers to avoid interference
+app.use('/graphql', yoga);
+
+// Use the same HTTP server for both HTTP and WS
+const httpServer = createServer(app);
+const { dispose } = registerWs(httpServer);
+
+httpServer.listen(4000, () => {
+    console.log('Gateway listening on http://localhost:4000');
+});
+
+// On shutdown, dispose WS resources
+process.on('SIGTERM', async () => {
+    await dispose();
+    httpServer.close();
+});
+process.on('SIGINT', async () => {
+    await dispose();
+    httpServer.close();
+});
+```
+
+Notes
+
+- Socket.IO (if used) can share the same `httpServer` (default path `/socket.io`) without conflicting with `/graphql`.
+- Keep Yoga mounted at `/graphql` and register WS with the same server so subscriptions work out-of-the-box.
+
 ## Workflow Notes
 
 - Husky enforces the `pre-commit` hook; lint-staged limits ESLint, Prettier, and type checking to staged files. Will
@@ -45,47 +94,18 @@ Unified GraphQL Yoga server merging multiple internal services into a single sch
 
 #### Context & services (DI pattern)
 
-- Services are created once at server startup and injected into the GraphQL context via a factory. This avoids
-  per-request instantiation while keeping testability.
-- Runtime: `src/server.ts` builds singletons and passes them to the context factory:
+- Services are created once at server startup and injected into the GraphQL context via a factory. In library mode, the
+  factory `createGraphQLServer` constructs services and passes them to the context.
+- Standalone runtime uses the same factory:
 
     ```ts
     // src/server.ts
-    import { createContextFactory, type GraphQLContext } from './context.js';
-    import { createACTRealtimeService } from './services/actRealtime.js';
-    import { createGTFSRealtimeService } from './services/gtfsRealtime.js';
-    import { fetchWithUrlParams } from './utils/fetch.js';
-    import { getCachedOrFetch } from './utils/cache.js';
-
-    const services = {
-        actRealtime: createACTRealtimeService({
-            fetchWithUrlParams,
-            apiToken: env.AC_TRANSIT_TOKEN,
-            apiBaseUrl: env.ACT_REALTIME_API_BASE_URL,
-            cacheTtl: {
-                busStopProfiles: env.WHERE_IS_51B_CACHE_TTL_BUS_STOP_PROFILES,
-                predictions: env.WHERE_IS_51B_CACHE_TTL_PREDICTIONS,
-                vehiclePositions: env.WHERE_IS_51B_CACHE_TTL_VEHICLE_POSITIONS,
-            },
-            getCachedOrFetch,
-        }),
-        gtfsRealtime: createGTFSRealtimeService({
-            fetchWithUrlParams,
-            apiToken: env.AC_TRANSIT_TOKEN,
-            apiBaseUrl: env.GTFS_REALTIME_API_BASE_URL,
-            cacheTtl: {
-                vehiclePositions: env.WHERE_IS_51B_CACHE_TTL_VEHICLE_POSITIONS,
-                tripUpdates: env.WHERE_IS_51B_CACHE_TTL_PREDICTIONS,
-                serviceAlerts: env.WHERE_IS_51B_CACHE_TTL_SERVICE_ALERTS,
-            },
-            getCachedOrFetch,
-        }),
-    };
-
-    const yoga = createYoga<GraphQLContext>({ schema, context: createContextFactory(services) });
+    import { createGraphQLServer } from './http/graphqlServer.js';
+    const { yoga, registerWs } = createGraphQLServer({ graphqlEndpoint: '/graphql' });
+    // create HTTP server, then call registerWs(httpServer)
     ```
 
-- Context: `src/context.ts` exports a factory that injects `env` and these services into each request’s context:
+- Context: `src/context.ts` exports a factory that injects `env` and services into each request’s context:
     ```ts
     // src/context.ts
     export function createContextFactory(services: GraphQLServices) {
@@ -150,3 +170,13 @@ Notes
 - ESLint may report `@graphql-eslint/no-unreachable-types` for the new type until it is reachable from
   `Query`, `Mutation`, `Subscription`, or another type. This is expected. Even if ESLint exits with a non‑zero code, it
   still applies autofixes such as import ordering to the changed files.
+
+## Publishing
+
+- Ensure you are logged in to npm: `npm login`
+- Build is automatically run on pack: `pnpm version patch && pnpm publish --access public`
+- Consumers should install both this package and `graphql` (peer dependency):
+
+```bash
+pnpm add nchica-graph graphql
+```
