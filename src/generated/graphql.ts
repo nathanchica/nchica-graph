@@ -39,6 +39,11 @@ export type AcTransitSystemBusStopArgs = {
     busStopCode: Scalars['String']['input'];
 };
 
+/** AC Transit system information and lookups */
+export type AcTransitSystemBusStopsArgs = {
+    routeId: Scalars['String']['input'];
+};
+
 /** Represents a bus stop in the AC Transit system */
 export type AcTransitBusStop = BusStop & {
     __typename?: 'AcTransitBusStop';
@@ -231,7 +236,12 @@ export type AcTransitSystemResolvers<
         ContextType,
         RequireFields<AcTransitSystemBusStopArgs, 'busStopCode'>
     >;
-    busStops?: Resolver<Array<ResolversTypes['AcTransitBusStop']>, ParentType, ContextType>;
+    busStops?: Resolver<
+        Array<ResolversTypes['AcTransitBusStop']>,
+        ParentType,
+        ContextType,
+        RequireFields<AcTransitSystemBusStopsArgs, 'routeId'>
+    >;
     name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
     __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
