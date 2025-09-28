@@ -6,6 +6,7 @@ import { createMockContext } from '../../../mocks/context.js';
 import { createMockACTRealtimeService } from '../../../services/__mocks__/actRealtime.js';
 import { createMockBusStopProfileRaw } from '../../../services/__mocks__/actRealtimeResponses.js';
 import type { ACTRealtimeServiceType } from '../../../services/actRealtime.js';
+import { UpstreamHttpError } from '../../../utils/error.js';
 
 describe('busStopResolvers', () => {
     let client: TestGraphQLClient;
@@ -123,7 +124,13 @@ describe('busStopResolvers', () => {
                 `,
             },
         ])('returns an error when fetching $field fails and nulls busStop', async ({ query }) => {
-            const mockFetch = vi.fn().mockRejectedValue(new Error('Upstream failure'));
+            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const mockFetch = vi.fn().mockRejectedValue(
+                new UpstreamHttpError(`HTTP error! status: 500`, {
+                    status: 500,
+                    meta: { source: 'ACT_REALTIME', url: 'www.example.com' },
+                })
+            );
             const mockActRealtimeService = createMockACTRealtimeService({
                 fetchBusStopProfiles: mockFetch,
             });
@@ -145,9 +152,10 @@ describe('busStopResolvers', () => {
             expect(errors).toHaveLength(1);
             expect(errors).toEqual([
                 expect.objectContaining({
-                    message: expect.stringContaining('Unexpected error'),
+                    message: expect.stringContaining('Unexpected error'), // Error will get masked by GQL Yoga
                 }),
             ]);
+            errorSpy.mockRestore();
         });
 
         it('handles missing bus stop profile gracefully and nulls busStop', async () => {

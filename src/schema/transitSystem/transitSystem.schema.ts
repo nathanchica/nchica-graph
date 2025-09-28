@@ -32,16 +32,6 @@ export const transitSystemDefs = /* GraphQL */ `
         List of all bus stops in the AC Transit system
         """
         busStops: [AcTransitBusStop!]!
-
-        """
-        Look up a single bus stop by its public stop code (5-digit code on the sign). Null if not found.
-        """
-        busStop(
-            """
-            Public stop code to look up (e.g., "55555")
-            """
-            busStopCode: String!
-        ): AcTransitBusStop
     }
 
     extend type Query {

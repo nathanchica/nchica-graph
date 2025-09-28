@@ -54,4 +54,26 @@ export const busStopDefs = /* GraphQL */ `
         """
         longitude: Float!
     }
+
+    extend type ACTransitSystem {
+        """
+        Look up a single bus stop by its public stop code (5-digit code on the sign). Null if not found.
+        """
+        busStop(
+            """
+            Public stop code to look up (e.g., "55555")
+            """
+            busStopCode: String!
+        ): AcTransitBusStop
+
+        """
+        List of all bus stops in the AC Transit system
+        """
+        busStops(
+            """
+            Route ID to filter bus stops that serve a specific route (e.g., "51B")
+            """
+            routeId: String!
+        ): [AcTransitBusStop!]!
+    }
 `;
