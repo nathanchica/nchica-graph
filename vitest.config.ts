@@ -20,6 +20,7 @@ export default defineConfig({
                 'graphql.config.js',
                 'src/**/__mocks__/**',
                 'scripts/**',
+                'src/http/**',
             ],
         },
         setupFiles: ['./src/testSetup.ts'],

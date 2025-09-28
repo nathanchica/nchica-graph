@@ -2,7 +2,7 @@ import type { Server as HttpServer } from 'node:http';
 
 import { GraphQLError, execute as graphqlExecute, subscribe as graphqlSubscribe, type ExecutionArgs } from 'graphql';
 import { useServer } from 'graphql-ws/use/ws';
-import { createYoga, type YogaServerInstance } from 'graphql-yoga';
+import { createYoga } from 'graphql-yoga';
 import { WebSocketServer } from 'ws';
 
 import { createContextFactory, type GraphQLContext } from '../context.js';
@@ -33,8 +33,7 @@ export interface RegisteredWsServer {
 }
 
 export interface GraphQLServer {
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-    yoga: YogaServerInstance<GraphQLContext, {}>;
+    yoga: ReturnType<typeof createYoga<GraphQLContext>>;
     graphqlEndpoint: string;
     registerWs: (httpServer: HttpServer) => RegisteredWsServer;
 }

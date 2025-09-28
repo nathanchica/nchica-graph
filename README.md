@@ -81,6 +81,37 @@ Notes
 - Socket.IO (if used) can share the same `httpServer` (default path `/socket.io`) without conflicting with `/graphql`.
 - Keep Yoga mounted at `/graphql` and register WS with the same server so subscriptions work out-of-the-box.
 
+## Environment Variables
+
+Library usage (in a gateway)
+
+- This package reads environment from `process.env` only; it does not call dotenv.
+- On Render (or any host), configure env vars in the service; they are available to this library at runtime.
+
+Standalone dev (this repo)
+
+- The standalone server (`src/server.ts`) imports `dotenv/config` to load `.env` for local development.
+
+Required
+
+- `AC_TRANSIT_TOKEN` – API token for AC Transit services.
+
+Optional (defaults exist)
+
+- `NODE_ENV` (default: `development`)
+- `HOST` (default: `localhost`)
+- `PORT` (default: `4000`)
+- `ENABLE_CACHE` (default: `true`)
+- `REDIS_URL` (if unset, falls back to in‑memory cache)
+- `ACT_REALTIME_API_BASE_URL`, `GTFS_REALTIME_API_BASE_URL`
+- `AC_TRANSIT_POLLING_INTERVAL`, `AC_TRANSIT_ALERTS_POLLING_INTERVAL`
+- `WHERE_IS_51B_CACHE_TTL_VEHICLE_POSITIONS`, `WHERE_IS_51B_CACHE_TTL_PREDICTIONS`, `WHERE_IS_51B_CACHE_TTL_SERVICE_ALERTS`, `WHERE_IS_51B_CACHE_TTL_BUS_STOP_PROFILES`
+
+Notes
+
+- Env validation occurs at module import via Zod. Missing required vars will throw early, which is intended.
+- In gateways, ensure env is set before the app starts (Render does this automatically).
+
 ## Workflow Notes
 
 - Husky enforces the `pre-commit` hook; lint-staged limits ESLint, Prettier, and type checking to staged files. Will
