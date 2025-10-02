@@ -1,12 +1,12 @@
 import type { Resolvers } from '../../generated/graphql.js';
+import type { PositionParent } from '../root/root.resolver.js';
 
 export type AcTransitBusStopParent = {
     __typename: 'AcTransitBusStop';
     id?: string;
     code: string;
     name?: string;
-    latitude?: number;
-    longitude?: number;
+    position?: PositionParent;
 };
 
 export function createBusStopParent(busStopData: Partial<AcTransitBusStopParent>): AcTransitBusStopParent {

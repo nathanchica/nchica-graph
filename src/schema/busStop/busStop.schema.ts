@@ -14,14 +14,9 @@ export const busStopDefs = /* GraphQL */ `
         name: String!
 
         """
-        Latitude of the stop location
+        Geographic position of the stop
         """
-        latitude: Float!
-
-        """
-        Longitude of the stop location
-        """
-        longitude: Float!
+        position: Position!
     }
 
     """
@@ -45,14 +40,9 @@ export const busStopDefs = /* GraphQL */ `
         name: String!
 
         """
-        Latitude of the stop location
+        Geographic position of the stop
         """
-        latitude: Float!
-
-        """
-        Longitude of the stop location
-        """
-        longitude: Float!
+        position: Position!
     }
 
     extend type ACTransitSystem {

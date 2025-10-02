@@ -1,30 +1,5 @@
 export const busDefs = /* GraphQL */ `
     """
-    Represents a real-time position and direction (if movable)
-    """
-    type Position {
-        """
-        Current latitude position
-        """
-        latitude: Float!
-
-        """
-        Current longitude position
-        """
-        longitude: Float!
-
-        """
-        Compass heading in degrees (0-360). Null if not movable.
-        """
-        heading: Float
-
-        """
-        Current speed in miles per hour. Null if not movable.
-        """
-        speed: Float
-    }
-
-    """
     Represents a bus in any transit system
     """
     type Bus {

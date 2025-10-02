@@ -24,8 +24,10 @@ describe('busStopResolvers', () => {
                             id
                             code
                             name
-                            latitude
-                            longitude
+                            position {
+                                latitude
+                                longitude
+                            }
                         }
                     }
                 }
@@ -102,7 +104,9 @@ describe('busStopResolvers', () => {
                         getTransitSystem(alias: "act") {
                             ... on ACTransitSystem {
                                 busStop(busStopCode: $busStopCode) {
-                                    latitude
+                                    position {
+                                        latitude
+                                    }
                                 }
                             }
                         }
@@ -116,7 +120,9 @@ describe('busStopResolvers', () => {
                         getTransitSystem(alias: "act") {
                             ... on ACTransitSystem {
                                 busStop(busStopCode: $busStopCode) {
-                                    longitude
+                                    position {
+                                        longitude
+                                    }
                                 }
                             }
                         }

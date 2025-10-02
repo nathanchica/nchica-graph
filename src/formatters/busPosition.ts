@@ -1,18 +1,11 @@
-import { transit_realtime } from 'gtfs-realtime-bindings';
-
+import { type PositionParent, createPositionParent } from '../schema/root/root.resolver.js';
 import type { BusPositionRaw } from '../services/actRealtime.schemas.js';
-import { parseActRealtimeTimestamp } from '../utils/datetime.js';
 
 export interface BusPosition {
     vehicleId: string;
     routeId: string;
-    latitude: number;
-    longitude: number;
-    heading: number | null;
-    speed: number | null;
-    timestamp: Date;
+    position: PositionParent;
     tripId: string | null;
-    stopSequence: number | null;
 }
 
 function parseFiniteNumber(value: unknown): number | null {
@@ -32,56 +25,6 @@ function parseFiniteNumber(value: unknown): number | null {
 
     const parsedNumber = Number(value);
     return Number.isFinite(parsedNumber) ? parsedNumber : null;
-}
-
-function resolveTimestamp(
-    vehicleTimestamp: transit_realtime.IVehiclePosition['timestamp'],
-    headerTimestamp: transit_realtime.IFeedHeader['timestamp']
-): Date {
-    const seconds = parseFiniteNumber(vehicleTimestamp) ?? parseFiniteNumber(headerTimestamp);
-    return seconds !== null ? new Date(seconds * 1000) : new Date();
-}
-
-export function createBusPositionsFromGtfsFeed(feedMessage: transit_realtime.IFeedMessage): BusPosition[] {
-    if (!feedMessage.entity?.length) {
-        return [];
-    }
-
-    const headerTimestamp = feedMessage.header?.timestamp;
-
-    const positions = feedMessage.entity.flatMap((entity) => {
-        const vehicle = entity.vehicle;
-        if (!vehicle) {
-            return [];
-        }
-
-        const routeId = vehicle.trip?.routeId;
-        const latitude = parseFiniteNumber(vehicle.position?.latitude);
-        const longitude = parseFiniteNumber(vehicle.position?.longitude);
-        const vehicleId = vehicle.vehicle?.id ?? entity.id /* v8 ignore next */ ?? '';
-
-        if (!routeId || latitude === null || longitude === null || !vehicleId) {
-            return [];
-        }
-
-        const stopSequenceValue = parseFiniteNumber(vehicle.currentStopSequence);
-
-        const position: BusPosition = {
-            vehicleId,
-            routeId,
-            latitude,
-            longitude,
-            heading: parseFiniteNumber(vehicle.position?.bearing),
-            speed: parseFiniteNumber(vehicle.position?.speed),
-            timestamp: resolveTimestamp(vehicle.timestamp, headerTimestamp),
-            tripId: vehicle.trip?.tripId ?? null,
-            stopSequence: stopSequenceValue !== null ? Math.round(stopSequenceValue) : null,
-        };
-
-        return [position];
-    });
-
-    return positions.sort((a, b) => a.vehicleId.localeCompare(b.vehicleId));
 }
 
 function resolveTripId(raw: BusPositionRaw): string | null {
@@ -119,13 +62,13 @@ export function createBusPositionsFromActRealtime(rawPositions: Array<BusPositio
             const position: BusPosition = {
                 vehicleId,
                 routeId,
-                latitude,
-                longitude,
-                heading,
-                speed,
-                timestamp: parseActRealtimeTimestamp(rawPosition.tmstmp),
+                position: createPositionParent({
+                    latitude,
+                    longitude,
+                    heading,
+                    speed,
+                }),
                 tripId: resolveTripId(rawPosition),
-                stopSequence: null, // ACT RealTime does not provide stop sequence information
             };
 
             return position;

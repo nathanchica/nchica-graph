@@ -62,12 +62,10 @@ export type AcTransitBusStop = BusStop & {
     code: Scalars['String']['output'];
     /** GTFS stop identifier (sequential ID used in GTFS feeds, e.g., "1234") */
     id: Scalars['String']['output'];
-    /** Latitude of the stop location */
-    latitude: Scalars['Float']['output'];
-    /** Longitude of the stop location */
-    longitude: Scalars['Float']['output'];
     /** Human-readable stop name */
     name: Scalars['String']['output'];
+    /** Geographic position of the stop */
+    position: Position;
 };
 
 /** Represents a bus in any transit system */
@@ -83,15 +81,13 @@ export type Bus = {
 export type BusStop = {
     /** GTFS stop identifier (sequential ID used in GTFS feeds, e.g., "1234") */
     id: Scalars['String']['output'];
-    /** Latitude of the stop location */
-    latitude: Scalars['Float']['output'];
-    /** Longitude of the stop location */
-    longitude: Scalars['Float']['output'];
     /** Human-readable stop name */
     name: Scalars['String']['output'];
+    /** Geographic position of the stop */
+    position: Position;
 };
 
-/** Represents a real-time position and direction (if movable) */
+/** Represents a geographic position and direction (if movable) */
 export type Position = {
     __typename?: 'Position';
     /** Compass heading in degrees (0-360). Null if not movable. */
@@ -292,9 +288,8 @@ export type AcTransitBusStopResolvers<
 > = {
     code?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
     id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-    latitude?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-    longitude?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
     name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+    position?: Resolver<ResolversTypes['Position'], ParentType, ContextType>;
     __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -386,8 +381,7 @@ export type GetBusStopProfileQuery = {
             id: string;
             code: string;
             name: string;
-            latitude: number;
-            longitude: number;
+            position: { __typename?: 'Position'; latitude: number; longitude: number };
         } | null;
     } | null;
 };
@@ -424,7 +418,7 @@ export type GetBusStopProfileLatitudeQuery = {
     __typename?: 'Query';
     getTransitSystem: {
         __typename?: 'ACTransitSystem';
-        busStop: { __typename?: 'AcTransitBusStop'; latitude: number } | null;
+        busStop: { __typename?: 'AcTransitBusStop'; position: { __typename?: 'Position'; latitude: number } } | null;
     } | null;
 };
 
@@ -436,6 +430,6 @@ export type GetBusStopProfileLongitudeQuery = {
     __typename?: 'Query';
     getTransitSystem: {
         __typename?: 'ACTransitSystem';
-        busStop: { __typename?: 'AcTransitBusStop'; longitude: number } | null;
+        busStop: { __typename?: 'AcTransitBusStop'; position: { __typename?: 'Position'; longitude: number } } | null;
     } | null;
 };
