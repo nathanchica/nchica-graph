@@ -35,28 +35,25 @@ export function createBusStopPredictionsLoader(actRealtime: ACTRealtimeServiceTy
             // Group by routeId to pass through to the upstream API for filtering
             const byRoute: Record<string, Set<string>> = {};
             for (const { routeId, stopCode } of keys) {
-                const routeKey = routeId ?? 'all';
-                byRoute[routeKey] ??= new Set<string>();
-                byRoute[routeKey].add(stopCode);
+                byRoute[routeId] ??= new Set<string>();
+                byRoute[routeId].add(stopCode);
             }
 
             const routeKeys = Object.keys(byRoute);
             const resultsByRoute: Record<string, Record<string, Array<BusStopPredictionRaw>>> = {};
 
             await Promise.all(
-                routeKeys.map(async (routeKey) => {
-                    const stopCodes = Array.from(byRoute[routeKey]);
-                    const routeParam = routeKey === 'all' || routeKey === '' ? undefined : routeKey;
-                    const map = await actRealtime.fetchBusStopPredictions(stopCodes, routeParam);
-                    resultsByRoute[routeKey] = map;
+                routeKeys.map(async (routeId) => {
+                    const stopCodes = Array.from(byRoute[routeId]);
+                    const map = await actRealtime.fetchBusStopPredictions(stopCodes, routeId);
+                    resultsByRoute[routeId] = map;
                 })
             );
 
-            return keys.map((key) => {
-                const routeKey = key.routeId ?? 'all';
-                const predictionsMapForRoute = resultsByRoute[routeKey] ?? {};
-                const raw = predictionsMapForRoute[key.stopCode] ?? [];
-                const isOutbound = key.direction === 'OUTBOUND';
+            return keys.map(({ routeId, stopCode, direction }) => {
+                const predictionsMapForRoute = resultsByRoute[routeId] ?? {};
+                const raw = predictionsMapForRoute[stopCode] ?? [];
+                const isOutbound = direction === 'OUTBOUND';
                 return createBusStopPredictionsFromActRealtime(raw, isOutbound);
             });
         },
