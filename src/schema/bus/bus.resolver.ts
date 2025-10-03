@@ -19,17 +19,37 @@ export function createBusParent(data: Partial<BusParent> = {}): BusParent {
 }
 
 export const busResolvers: Resolvers = {
-    ACTransitSystem: {
-        busesByRoute: async (_parent, args, { loaders }) => {
-            const busPositions = await loaders.bus.byRoute.load(args.routeId);
-            return busPositions
-                .filter((busPosition) => Boolean(busPosition))
-                .map((busPosition) =>
-                    createBusParent({
-                        vehicleId: busPosition.vehicleId,
-                        position: createPositionParent(busPosition.position),
-                    })
-                );
+    Subscription: {
+        busesByRoute: {
+            subscribe: async function* (_parent, args, ctx) {
+                const routeId = args.routeId.trim();
+
+                const initialBusPositions = await ctx.loaders.bus.byRoute.clear(routeId).load(routeId);
+                const initialBuses = initialBusPositions
+                    .filter((busPosition) => Boolean(busPosition))
+                    .map((busPosition) =>
+                        createBusParent({
+                            vehicleId: busPosition.vehicleId,
+                            position: createPositionParent(busPosition.position),
+                        })
+                    );
+                yield { busesByRoute: initialBuses };
+
+                const intervalMs = ctx.env.AC_TRANSIT_POLLING_INTERVAL;
+                while (true) {
+                    const busPositions = await ctx.loaders.bus.byRoute.clear(routeId).load(routeId);
+                    const buses = busPositions
+                        .filter((busPosition) => Boolean(busPosition))
+                        .map((busPosition) =>
+                            createBusParent({
+                                vehicleId: busPosition.vehicleId,
+                                position: createPositionParent(busPosition.position),
+                            })
+                        );
+                    yield { busesByRoute: buses };
+                    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+                }
+            },
         },
     },
 };

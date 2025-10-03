@@ -31,8 +31,6 @@ export type AcTransitSystem = TransitSystem & {
     busStop: Maybe<AcTransitBusStop>;
     /** List of all bus stops in the AC Transit system */
     busStops: Array<AcTransitBusStop>;
-    /** List of all buses in the AC Transit system */
-    busesByRoute: Array<Bus>;
     /** Displayable name of the transit system */
     name: Scalars['String']['output'];
 };
@@ -44,11 +42,6 @@ export type AcTransitSystemBusStopArgs = {
 
 /** AC Transit system information and lookups */
 export type AcTransitSystemBusStopsArgs = {
-    routeId: Scalars['String']['input'];
-};
-
-/** AC Transit system information and lookups */
-export type AcTransitSystemBusesByRouteArgs = {
     routeId: Scalars['String']['input'];
 };
 
@@ -121,8 +114,15 @@ export type Subscription = {
     __typename?: 'Subscription';
     /** Subscribe to current system date and time of AC Transit system */
     acTransitSystemTime: Scalars['DateTime']['output'];
+    /** List of all buses in the AC Transit system */
+    busesByRoute: Array<Bus>;
     /** Heartbeat subscription that emits current timestamp every second */
     heartbeat: Scalars['DateTime']['output'];
+};
+
+/** Root subscription type for real-time updates */
+export type SubscriptionBusesByRouteArgs = {
+    routeId: Scalars['String']['input'];
 };
 
 /** Represents a generic transit system */
@@ -272,12 +272,6 @@ export type AcTransitSystemResolvers<
         ContextType,
         RequireFields<AcTransitSystemBusStopsArgs, 'routeId'>
     >;
-    busesByRoute?: Resolver<
-        Array<ResolversTypes['Bus']>,
-        ParentType,
-        ContextType,
-        RequireFields<AcTransitSystemBusesByRouteArgs, 'routeId'>
-    >;
     name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
     __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
@@ -345,6 +339,13 @@ export type SubscriptionResolvers<
         'acTransitSystemTime',
         ParentType,
         ContextType
+    >;
+    busesByRoute?: SubscriptionResolver<
+        Array<ResolversTypes['Bus']>,
+        'busesByRoute',
+        ParentType,
+        ContextType,
+        RequireFields<SubscriptionBusesByRouteArgs, 'routeId'>
     >;
     heartbeat?: SubscriptionResolver<ResolversTypes['DateTime'], 'heartbeat', ParentType, ContextType>;
 };
