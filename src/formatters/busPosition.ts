@@ -1,10 +1,16 @@
-import { type PositionParent, createPositionParent } from '../schema/root/root.resolver.js';
 import type { BusPositionRaw } from '../services/actRealtime.schemas.js';
+
+export type Position = {
+    latitude: number;
+    longitude: number;
+    heading: number;
+    speed: number;
+};
 
 export interface BusPosition {
     vehicleId: string;
     routeId: string;
-    position: PositionParent;
+    position: Position;
     tripId: string | null;
 }
 
@@ -51,23 +57,22 @@ export function createBusPositionsFromActRealtime(rawPositions: Array<BusPositio
             const routeId = rawPosition.rt?.trim();
             const latitude = parseFiniteNumber(rawPosition.lat);
             const longitude = parseFiniteNumber(rawPosition.lon);
-
-            if (!vehicleId || !routeId || latitude === null || longitude === null) {
-                return null;
-            }
-
             const heading = parseFiniteNumber(rawPosition.hdg);
             const speed = parseFiniteNumber(rawPosition.spd);
+
+            if (!vehicleId || !routeId || !latitude || !longitude || !heading || !speed) {
+                return null;
+            }
 
             const position: BusPosition = {
                 vehicleId,
                 routeId,
-                position: createPositionParent({
+                position: {
                     latitude,
                     longitude,
                     heading,
                     speed,
-                }),
+                },
                 tripId: resolveTripId(rawPosition),
             };
 
