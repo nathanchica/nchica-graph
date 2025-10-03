@@ -388,7 +388,7 @@ describe('ACT Realtime Service', () => {
                 fetchWithUrlParams: mockFetch,
             });
 
-            const response = await service.fetchVehiclePositions(routeId);
+            const response = await service.fetchBusPositions(routeId);
 
             expect(mockFetch).toHaveBeenCalledTimes(1);
             expect(response).toEqual(mockBusPositions);
@@ -404,7 +404,7 @@ describe('ACT Realtime Service', () => {
                 ...defaultDependencies,
                 fetchWithUrlParams: mockFetch,
             });
-            await expect(service.fetchVehiclePositions('51B')).rejects.toThrow('HTTP error! status: 500');
+            await expect(service.fetchBusPositions('51B')).rejects.toThrow('HTTP error! status: 500');
             expect(mockFetch).toHaveBeenCalledTimes(1);
         });
 
@@ -423,7 +423,7 @@ describe('ACT Realtime Service', () => {
                 fetchWithUrlParams: mockFetch,
             });
 
-            const response = await service.fetchVehiclePositions('51B');
+            const response = await service.fetchBusPositions('51B');
 
             expect(mockFetch).toHaveBeenCalledTimes(1);
             expect(response).toEqual([]);
@@ -439,7 +439,7 @@ describe('ACT Realtime Service', () => {
                 fetchWithUrlParams: mockFetch,
             });
 
-            const response = await service.fetchVehiclePositions('51B');
+            const response = await service.fetchBusPositions('51B');
 
             expect(mockFetch).toHaveBeenCalledTimes(1);
             expect(response).toEqual([]);
@@ -455,7 +455,7 @@ describe('ACT Realtime Service', () => {
                 fetchWithUrlParams: mockFetch,
             });
 
-            const response = await service.fetchVehiclePositions('51B');
+            const response = await service.fetchBusPositions('51B');
 
             expect(mockFetch).toHaveBeenCalledTimes(1);
             expect(response).toEqual([]);

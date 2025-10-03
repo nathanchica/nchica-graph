@@ -349,7 +349,7 @@ class ACTRealtimeService {
      * @param routeId Optional route ID to filter by
      * @returns Array of BusPositionRaw
      */
-    async fetchVehiclePositions(routeId?: string): Promise<Array<BusPositionRaw>> {
+    async fetchBusPositions(routeId?: string): Promise<Array<BusPositionRaw>> {
         const cacheKey = `vehicle-positions:${routeId ?? 'all'}`;
 
         let positions: Array<BusPositionRaw> = [];
