@@ -1,7 +1,8 @@
 import invariant from 'tiny-invariant';
 
+import type { BusStopProfile } from '../../formatters/busStop.js';
 import type { Resolvers } from '../../generated/graphql.js';
-import type { PositionParent } from '../root/root.resolver.js';
+import { createPositionParent, type PositionParent } from '../root/root.resolver.js';
 
 export type AcTransitBusStopParent = {
     __typename: 'AcTransitBusStop';
@@ -11,13 +12,15 @@ export type AcTransitBusStopParent = {
     position?: PositionParent;
 };
 
-export function createBusStopParent(busStopData: Partial<AcTransitBusStopParent>): AcTransitBusStopParent {
+export function createBusStopParent(busStopData: Partial<BusStopProfile>): AcTransitBusStopParent {
     invariant(busStopData.code, 'BusStop code is required to create BusStopParent');
 
     return {
         __typename: 'AcTransitBusStop',
         code: busStopData.code,
-        ...busStopData,
+        id: busStopData.id,
+        name: busStopData.name,
+        position: busStopData.position ? createPositionParent(busStopData.position) : undefined,
     };
 }
 

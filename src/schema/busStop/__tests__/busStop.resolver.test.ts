@@ -7,7 +7,6 @@ import { createMockACTRealtimeService } from '../../../services/__mocks__/actRea
 import { createMockBusStopProfileRaw } from '../../../services/__mocks__/actRealtimeResponses.js';
 import type { ACTRealtimeServiceType } from '../../../services/actRealtime.js';
 import { UpstreamHttpError } from '../../../utils/error.js';
-import { createPositionParent } from '../../root/root.resolver.js';
 import { createBusStopParent } from '../busStop.resolver.js';
 
 describe('createBusStopParent', () => {
@@ -15,13 +14,13 @@ describe('createBusStopParent', () => {
         { input: { code: '12345' } },
         { input: { code: '12345', id: 'GTFS_STOP_123' } },
         { input: { code: '12345', name: 'Downtown Stop' } },
-        { input: { code: '12345', position: createPositionParent({ latitude: 37.7749, longitude: -122.4194 }) } },
+        { input: { code: '12345', position: { latitude: 37.7749, longitude: -122.4194 } } },
         {
             input: {
                 code: '54321',
                 id: 'GTFS_STOP_987',
                 name: 'Uptown',
-                position: createPositionParent({ latitude: 34.0522, longitude: -118.2437, heading: 90, speed: 30 }),
+                position: { latitude: 34.0522, longitude: -118.2437, heading: 90, speed: 30 },
             },
         },
     ])('creates AcTransitBusStopParent', ({ input }) => {
@@ -38,7 +37,7 @@ describe('createBusStopParent', () => {
         { scenario: 'missing code with name', input: { name: 'Some Stop' } },
         {
             scenario: 'missing code with position',
-            input: { position: createPositionParent({ latitude: 1, longitude: 2 }) },
+            input: { position: { latitude: 1, longitude: 2 } },
         },
     ])('throws if $scenario', ({ input }) => {
         expect(() => createBusStopParent(input)).toThrow('BusStop code is required to create BusStopParent');

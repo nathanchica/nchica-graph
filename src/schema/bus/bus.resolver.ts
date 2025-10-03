@@ -20,7 +20,7 @@ export function createBusParent(data: Partial<BusParent> = {}): BusParent {
 
 export const busResolvers = {
     Bus: {
-        position: (parent: BusParent, _args: unknown, _ctx: GraphQLContext) => parent.position ?? null,
+        position: (parent: BusParent, _args: unknown, _ctx: GraphQLContext) => parent.position,
     },
     ACTransitSystem: {
         busesByRoute: () => {

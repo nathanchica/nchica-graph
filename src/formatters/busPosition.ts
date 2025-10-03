@@ -3,8 +3,8 @@ import type { BusPositionRaw } from '../services/actRealtime.schemas.js';
 export type Position = {
     latitude: number;
     longitude: number;
-    heading: number;
-    speed: number;
+    heading?: number | null;
+    speed?: number | null;
 };
 
 export interface BusPosition {
@@ -60,7 +60,7 @@ export function createBusPositionsFromActRealtime(rawPositions: Array<BusPositio
             const heading = parseFiniteNumber(rawPosition.hdg);
             const speed = parseFiniteNumber(rawPosition.spd);
 
-            if (!vehicleId || !routeId || !latitude || !longitude || !heading || !speed) {
+            if (!vehicleId || !routeId || latitude === null || longitude === null) {
                 return null;
             }
 

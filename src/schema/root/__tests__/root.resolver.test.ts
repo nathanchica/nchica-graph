@@ -7,17 +7,20 @@ describe('createPositionParent', () => {
         { latitude: 34.0522, longitude: -118.2437, heading: 180 },
         { latitude: 40.7128, longitude: -74.006, speed: 25 },
         { latitude: 51.5074, longitude: -0.1278, heading: 90, speed: 15 },
-    ])('creates PositionParent', (input) => {
-        const position = createPositionParent(input);
+    ])(
+        'creates PositionParent with latitude $latitude, longitude $longitude, heading $heading, speed $speed',
+        (input) => {
+            const position = createPositionParent(input);
 
-        expect(position).toEqual({
-            __typename: 'Position',
-            latitude: input.latitude,
-            longitude: input.longitude,
-            heading: input.heading ?? null,
-            speed: input.speed ?? null,
-        });
-    });
+            expect(position).toEqual({
+                __typename: 'Position',
+                latitude: input.latitude,
+                longitude: input.longitude,
+                heading: input.heading ?? null,
+                speed: input.speed ?? null,
+            });
+        }
+    );
 
     it.each([
         { scenario: 'missing longitude', input: { latitude: 37.7749 } },

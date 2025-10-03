@@ -1,4 +1,5 @@
-import { type PositionParent } from '../schema/root/root.resolver.js';
+import { type Position } from './busPosition.js';
+
 import type { BusStopProfileRaw } from '../services/actRealtime.schemas.js';
 
 /**
@@ -8,7 +9,7 @@ export type BusStopProfile = {
     id: string; // GTFS stop_id (geoid from API)
     code: string; // 5-digit stop code (stpid from API)
     name: string; // Stop name
-    position: PositionParent;
+    position: Position;
 };
 
 export function createBusStopProfile(rawBusStop: BusStopProfileRaw): BusStopProfile {
@@ -27,6 +28,6 @@ export function createBusStopProfile(rawBusStop: BusStopProfileRaw): BusStopProf
         position: {
             latitude: rawBusStop.lat,
             longitude: rawBusStop.lon,
-        } as PositionParent,
+        },
     };
 }

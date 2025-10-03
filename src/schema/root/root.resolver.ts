@@ -12,15 +12,17 @@ export type PositionParent = {
 };
 
 export function createPositionParent(busStopData: Partial<PositionParent>): PositionParent {
+    const { latitude, longitude } = busStopData;
+
     invariant(
-        busStopData.latitude && busStopData.longitude,
+        latitude !== undefined && latitude !== null && longitude !== undefined && longitude !== null,
         'Position latitude and longitude are required to create PositionParent'
     );
 
     return {
         __typename: 'Position',
-        latitude: busStopData.latitude,
-        longitude: busStopData.longitude,
+        latitude,
+        longitude,
         heading: busStopData.heading ?? null,
         speed: busStopData.speed ?? null,
     };
