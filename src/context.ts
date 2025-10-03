@@ -2,6 +2,7 @@ import type { YogaInitialContext } from 'graphql-yoga';
 
 import type { Env } from './env.js';
 import { env } from './env.js';
+import { createBusPositionsByRouteLoader, type BusPositionsByRouteLoader } from './loaders/busPosition.js';
 import { createBusStopByCodeLoader, type BusStopByCodeLoader } from './loaders/busStop.js';
 import type { ACTRealtimeServiceType } from './services/actRealtime.js';
 import type { GTFSRealtimeServiceType } from './services/gtfsRealtime.js';
@@ -13,6 +14,9 @@ export type Services = {
 export type Loaders = {
     busStop: {
         byCode: BusStopByCodeLoader;
+    };
+    bus: {
+        byRoute: BusPositionsByRouteLoader;
     };
 };
 export interface GraphQLContext extends YogaInitialContext {
@@ -26,6 +30,9 @@ export function createContextFactory(services: Services) {
         const loaders: Loaders = {
             busStop: {
                 byCode: createBusStopByCodeLoader(services.actRealtime),
+            },
+            bus: {
+                byRoute: createBusPositionsByRouteLoader(services.actRealtime),
             },
         };
 

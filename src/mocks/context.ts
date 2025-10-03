@@ -1,6 +1,7 @@
 import { createMockEnv } from './env.js';
 
 import type { GraphQLContext } from '../context.js';
+import { createBusPositionsByRouteLoader } from '../loaders/busPosition.js';
 import { createBusStopByCodeLoader } from '../loaders/busStop.js';
 import { createACTRealtimeService } from '../services/actRealtime.js';
 import { createGTFSRealtimeService } from '../services/gtfsRealtime.js';
@@ -55,6 +56,9 @@ export const createMockContext = (overrides?: Partial<GraphQLContext>): GraphQLC
     const defaultLoaders: GraphQLContext['loaders'] = {
         busStop: {
             byCode: createBusStopByCodeLoader(services.actRealtime),
+        },
+        bus: {
+            byRoute: createBusPositionsByRouteLoader(services.actRealtime),
         },
     };
 
