@@ -38,6 +38,7 @@ export const busStopResolvers: Resolvers = {
     },
     ACTransitSystem: {
         busStop: async (_parent, args, { loaders }) => {
+            console.log('here', args);
             const busStopProfile = await loaders.busStop.byCode.load(args.busStopCode);
             return busStopProfile ? createBusStopParent(busStopProfile) : null;
         },
