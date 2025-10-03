@@ -1,3 +1,5 @@
+import invariant from 'tiny-invariant';
+
 import type { GraphQLContext } from '../../context.js';
 import type { Resolvers } from '../../generated/graphql.js';
 
@@ -10,9 +12,10 @@ export type PositionParent = {
 };
 
 export function createPositionParent(busStopData: Partial<PositionParent>): PositionParent {
-    if (!(busStopData.latitude && busStopData.longitude)) {
-        throw new Error('Position latitude and longitude are required to create PositionParent');
-    }
+    invariant(
+        busStopData.latitude && busStopData.longitude,
+        'Position latitude and longitude are required to create PositionParent'
+    );
 
     return {
         __typename: 'Position',

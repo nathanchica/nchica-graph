@@ -1,3 +1,5 @@
+import invariant from 'tiny-invariant';
+
 import type { Resolvers } from '../../generated/graphql.js';
 import type { PositionParent } from '../root/root.resolver.js';
 
@@ -10,9 +12,7 @@ export type AcTransitBusStopParent = {
 };
 
 export function createBusStopParent(busStopData: Partial<AcTransitBusStopParent>): AcTransitBusStopParent {
-    if (!busStopData.code) {
-        throw new Error('BusStop code is required to create BusStopParent');
-    }
+    invariant(busStopData.code, 'BusStop code is required to create BusStopParent');
 
     return {
         __typename: 'AcTransitBusStop',
