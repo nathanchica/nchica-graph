@@ -1,5 +1,20 @@
 export const busDefs = /* GraphQL */ `
     """
+    Enum for bus direction
+    """
+    enum BusDirection {
+        """
+        Inbound (going towards downtown)
+        """
+        INBOUND
+
+        """
+        Outbound (going away from downtown)
+        """
+        OUTBOUND
+    }
+
+    """
     Represents a bus in any transit system
     """
     type Bus {

@@ -1,10 +1,14 @@
 import type { Services } from '../../../context.js';
 import { createBusStopProfile } from '../../../formatters/busStop.js';
-import type { GetBusStopProfileQuery } from '../../../generated/graphql.js';
+import type { GetBusStopProfileQuery, BusStopPredictionsSubscription } from '../../../generated/graphql.js';
 import { createTestClient, type TestGraphQLClient } from '../../../mocks/client.js';
 import { createMockContext } from '../../../mocks/context.js';
+import { createMockEnv } from '../../../mocks/env.js';
 import { createMockACTRealtimeService } from '../../../services/__mocks__/actRealtime.js';
-import { createMockBusStopProfileRaw } from '../../../services/__mocks__/actRealtimeResponses.js';
+import {
+    createMockBusStopPredictionRaw,
+    createMockBusStopProfileRaw,
+} from '../../../services/__mocks__/actRealtimeResponses.js';
 import type { ACTRealtimeServiceType } from '../../../services/actRealtime.js';
 import { UpstreamHttpError } from '../../../utils/error.js';
 import { createBusStopParent } from '../busStop.resolver.js';
@@ -234,6 +238,179 @@ describe('busStopResolvers', () => {
             });
 
             expect(errors).toBeUndefined();
+        });
+    });
+
+    describe('Subscription.busStopPredictions', () => {
+        it('emits multiple events over time (initial + 2 loops)', async () => {
+            const query = /* GraphQL */ `
+                subscription BusStopPredictionsSubscription(
+                    $routeId: String!
+                    $stopCode: String!
+                    $direction: BusDirection!
+                ) {
+                    busStopPredictions(routeId: $routeId, stopCode: $stopCode, direction: $direction) {
+                        vehicleId
+                        tripId
+                        arrivalTime
+                        minutesAway
+                        isOutbound
+                    }
+                }
+            `;
+
+            const routeId = '51B';
+            const stopCode = '50373';
+
+            // Tick 1: one outbound, one inbound (inbound should be filtered out for OUTBOUND)
+            const tick1 = [
+                createMockBusStopPredictionRaw({
+                    stpid: stopCode,
+                    rtdir: 'Amtrak', // outbound
+                    prdtm: '20240701 12:00',
+                    prdctdn: '5',
+                    vid: 'V-OUT-1',
+                    tatripid: 'TRIP-OUT-1',
+                }),
+                createMockBusStopPredictionRaw({
+                    stpid: stopCode,
+                    rtdir: 'Rockridge BART', // inbound
+                    prdtm: '20240701 12:10',
+                    prdctdn: '10',
+                    vid: 'V-IN-1',
+                    tatripid: 'TRIP-IN-1',
+                }),
+            ];
+
+            // Tick 2: different outbound prediction
+            const tick2 = [
+                createMockBusStopPredictionRaw({
+                    stpid: stopCode,
+                    rtdir: 'Away', // outbound
+                    prdtm: '20240701 12:03',
+                    prdctdn: '3',
+                    vid: 'V-OUT-2',
+                    tatripid: 'TRIP-OUT-2',
+                }),
+            ];
+
+            // Tick 3: two outbound predictions, ensure sorting by arrivalTime asc
+            const tick3 = [
+                createMockBusStopPredictionRaw({
+                    stpid: stopCode,
+                    rtdir: 'Amtrak',
+                    prdtm: '20240701 12:08',
+                    prdctdn: '8',
+                    vid: 'V-OUT-4',
+                    tatripid: 'TRIP-OUT-4',
+                }),
+                createMockBusStopPredictionRaw({
+                    stpid: stopCode,
+                    rtdir: 'Away',
+                    prdtm: '20240701 12:06',
+                    prdctdn: '6',
+                    vid: 'V-OUT-3',
+                    tatripid: 'TRIP-OUT-3',
+                }),
+            ];
+
+            const fetchBusStopPredictions = vi
+                .fn()
+                .mockResolvedValueOnce({ [stopCode]: tick1 })
+                .mockResolvedValueOnce({ [stopCode]: tick2 })
+                .mockResolvedValueOnce({ [stopCode]: tick3 });
+
+            const mockActRealtimeService = createMockACTRealtimeService({ fetchBusStopPredictions });
+            const env = createMockEnv({ AC_TRANSIT_POLLING_INTERVAL: 1000 });
+            const mockContext = {
+                services: { actRealtime: mockActRealtimeService as ACTRealtimeServiceType } as Services,
+                env,
+            };
+
+            vi.useFakeTimers();
+
+            const eventsPromise = client.collectSubscription<BusStopPredictionsSubscription>(
+                query,
+                { routeId, stopCode, direction: 'OUTBOUND' },
+                mockContext,
+                { take: 3 }
+            );
+
+            await vi.advanceTimersByTimeAsync(env.AC_TRANSIT_POLLING_INTERVAL);
+            await vi.advanceTimersByTimeAsync(env.AC_TRANSIT_POLLING_INTERVAL);
+
+            const events = await eventsPromise;
+
+            expect(Array.isArray(events)).toBe(true);
+            expect(events).toHaveLength(3);
+            events.forEach(({ errors }) => expect(errors).toBeUndefined());
+
+            // Initial payload: only outbound item remains
+            expect(events[0].data?.busStopPredictions).toEqual([
+                expect.objectContaining({
+                    vehicleId: 'V-OUT-1',
+                    tripId: 'TRIP-OUT-1',
+                    isOutbound: true,
+                    minutesAway: 5,
+                }),
+            ]);
+
+            // Second tick
+            expect(events[1].data?.busStopPredictions).toEqual([
+                expect.objectContaining({
+                    vehicleId: 'V-OUT-2',
+                    tripId: 'TRIP-OUT-2',
+                    isOutbound: true,
+                    minutesAway: 3,
+                }),
+            ]);
+
+            // Third tick: two results sorted by arrivalTime (12:06, 12:08)
+            expect(events[2].data?.busStopPredictions?.map(({ vehicleId }) => vehicleId)).toEqual([
+                'V-OUT-3',
+                'V-OUT-4',
+            ]);
+
+            expect(fetchBusStopPredictions).toHaveBeenCalledTimes(3);
+            expect(fetchBusStopPredictions).toHaveBeenNthCalledWith(1, [stopCode], routeId);
+            expect(fetchBusStopPredictions).toHaveBeenNthCalledWith(2, [stopCode], routeId);
+            expect(fetchBusStopPredictions).toHaveBeenNthCalledWith(3, [stopCode], routeId);
+
+            vi.useRealTimers();
+        });
+
+        it('returns GraphQL error when routeId is blank', async () => {
+            const query = /* GraphQL */ `
+                subscription BusStopPredictions($routeId: String!, $stopCode: String!, $direction: BusDirection!) {
+                    busStopPredictions(routeId: $routeId, stopCode: $stopCode, direction: $direction) {
+                        vehicleId
+                    }
+                }
+            `;
+
+            const result = await client.request(query, { routeId: ' ', stopCode: '50373', direction: 'OUTBOUND' });
+            expect(result.data).toBeUndefined();
+            expect(result.errors).toBeDefined();
+            const [error] = result.errors as Array<{ message: string; extensions?: Record<string, unknown> }>;
+            expect(error.message).toMatch(/routeId argument is required/);
+            expect(error.extensions).toMatchObject({ code: 'BAD_REQUEST' });
+        });
+
+        it('returns GraphQL error when stopCode is blank', async () => {
+            const query = /* GraphQL */ `
+                subscription BusStopPredictions($routeId: String!, $stopCode: String!, $direction: BusDirection!) {
+                    busStopPredictions(routeId: $routeId, stopCode: $stopCode, direction: $direction) {
+                        vehicleId
+                    }
+                }
+            `;
+
+            const result = await client.request(query, { routeId: '51B', stopCode: ' ', direction: 'OUTBOUND' });
+            expect(result.data).toBeUndefined();
+            expect(result.errors).toBeDefined();
+            const [error] = result.errors as Array<{ message: string; extensions?: Record<string, unknown> }>;
+            expect(error.message).toMatch(/stopCode argument is required/);
+            expect(error.extensions).toMatchObject({ code: 'BAD_REQUEST' });
         });
     });
 });

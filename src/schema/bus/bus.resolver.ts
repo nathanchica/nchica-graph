@@ -5,6 +5,8 @@ import type { GraphQLContext } from '../../context.js';
 import type { Resolvers } from '../../generated/graphql.js';
 import { type PositionParent, createPositionParent } from '../root/root.resolver.js';
 
+export type BusDirection = 'INBOUND' | 'OUTBOUND';
+
 export type BusParent = {
     __typename: 'Bus';
     vehicleId: string;

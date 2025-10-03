@@ -7,10 +7,8 @@ export interface BusStopPrediction {
     vehicleId: string;
     tripId: string;
     arrivalTime: Date;
-    departureTime: Date;
     minutesAway: number;
     isOutbound: boolean;
-    distanceToStopFeet: number | null;
 }
 
 function parseMinutesAway(value: string): number {
@@ -54,10 +52,8 @@ export function createBusStopPredictionsFromActRealtime(
                 vehicleId: prediction.vid,
                 tripId: prediction.tatripid,
                 arrivalTime,
-                departureTime: arrivalTime,
                 minutesAway: formatMinutesAway(minutesAway),
                 isOutbound: isOutboundDirection(prediction.rtdir),
-                distanceToStopFeet: Number.isFinite(prediction.dstp) ? prediction.dstp : null,
             };
         })
         .sort((a, b) => a.arrivalTime.getTime() - b.arrivalTime.getTime());
@@ -94,7 +90,6 @@ export function createBusStopPredictionsFromGtfsFeed(
                     const departureUnixTime = stopTimeUpdate.departure?.time;
 
                     const arrivalTime = new Date(Number(arrivalUnixTime || departureUnixTime) * 1000);
-                    const departureTime = new Date(Number(departureUnixTime || arrivalUnixTime) * 1000);
 
                     const now = new Date();
                     const minutesAway = Math.round((arrivalTime.getTime() - now.getTime()) / 60000);
@@ -104,9 +99,7 @@ export function createBusStopPredictionsFromGtfsFeed(
                         vehicleId,
                         isOutbound: tripIsOutbound,
                         arrivalTime,
-                        departureTime,
                         minutesAway: formatMinutesAway(minutesAway),
-                        distanceToStopFeet: null, // GTFS-RT doesn't provide distance data
                     };
                 });
         });

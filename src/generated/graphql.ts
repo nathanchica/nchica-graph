@@ -70,6 +70,14 @@ export type Bus = {
     vehicleId: Scalars['String']['output'];
 };
 
+/** Enum for bus direction */
+export enum BusDirection {
+    /** Inbound (going towards downtown) */
+    Inbound = 'INBOUND',
+    /** Outbound (going away from downtown) */
+    Outbound = 'OUTBOUND',
+}
+
 /** Represents a bus stop in any transit system */
 export type BusStop = {
     /** GTFS stop identifier (sequential ID used in GTFS feeds, e.g., "1234") */
@@ -78,6 +86,21 @@ export type BusStop = {
     name: Scalars['String']['output'];
     /** Geographic position of the stop */
     position: Position;
+};
+
+/** Represents a predicted bus arrival at a stop */
+export type BusStopPrediction = {
+    __typename?: 'BusStopPrediction';
+    /** Predicted arrival time */
+    arrivalTime: Scalars['DateTime']['output'];
+    /** True if bus is heading outbound (away from downtown) */
+    isOutbound: Scalars['Boolean']['output'];
+    /** Number of minutes until arrival */
+    minutesAway: Scalars['Int']['output'];
+    /** GTFS trip identifier */
+    tripId: Scalars['String']['output'];
+    /** Vehicle identifier for the approaching bus */
+    vehicleId: Scalars['String']['output'];
 };
 
 /** Represents a geographic position and direction (if movable) */
@@ -114,10 +137,19 @@ export type Subscription = {
     __typename?: 'Subscription';
     /** Subscribe to current system date and time of AC Transit system */
     acTransitSystemTime: Scalars['DateTime']['output'];
+    /** Subscribe to real-time arrival predictions for a specific bus stop */
+    busStopPredictions: Array<BusStopPrediction>;
     /** List of all buses in the AC Transit system */
     busesByRoute: Array<Bus>;
     /** Heartbeat subscription that emits current timestamp every second */
     heartbeat: Scalars['DateTime']['output'];
+};
+
+/** Root subscription type for real-time updates */
+export type SubscriptionBusStopPredictionsArgs = {
+    direction: BusDirection;
+    routeId: Scalars['String']['input'];
+    stopCode: Scalars['String']['input'];
 };
 
 /** Root subscription type for real-time updates */
@@ -229,9 +261,12 @@ export type ResolversTypes = {
     AcTransitBusStop: ResolverTypeWrapper<AcTransitBusStopParent>;
     Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
     Bus: ResolverTypeWrapper<BusParent>;
+    BusDirection: BusDirection;
     BusStop: ResolverTypeWrapper<ResolversInterfaceTypes<ResolversTypes>['BusStop']>;
+    BusStopPrediction: ResolverTypeWrapper<BusStopPrediction>;
     DateTime: ResolverTypeWrapper<Scalars['DateTime']['output']>;
     Float: ResolverTypeWrapper<Scalars['Float']['output']>;
+    Int: ResolverTypeWrapper<Scalars['Int']['output']>;
     Position: ResolverTypeWrapper<Position>;
     Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
     String: ResolverTypeWrapper<Scalars['String']['output']>;
@@ -246,8 +281,10 @@ export type ResolversParentTypes = {
     Boolean: Scalars['Boolean']['output'];
     Bus: BusParent;
     BusStop: ResolversInterfaceTypes<ResolversParentTypes>['BusStop'];
+    BusStopPrediction: BusStopPrediction;
     DateTime: Scalars['DateTime']['output'];
     Float: Scalars['Float']['output'];
+    Int: Scalars['Int']['output'];
     Position: Position;
     Query: Record<PropertyKey, never>;
     String: Scalars['String']['output'];
@@ -302,6 +339,17 @@ export type BusStopResolvers<
     __resolveType: TypeResolveFn<'AcTransitBusStop', ParentType, ContextType>;
 };
 
+export type BusStopPredictionResolvers<
+    ContextType = GraphQLContext,
+    ParentType extends ResolversParentTypes['BusStopPrediction'] = ResolversParentTypes['BusStopPrediction'],
+> = {
+    arrivalTime?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+    isOutbound?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+    minutesAway?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+    tripId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+    vehicleId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
 export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['DateTime'], any> {
     name: 'DateTime';
 }
@@ -340,6 +388,13 @@ export type SubscriptionResolvers<
         ParentType,
         ContextType
     >;
+    busStopPredictions?: SubscriptionResolver<
+        Array<ResolversTypes['BusStopPrediction']>,
+        'busStopPredictions',
+        ParentType,
+        ContextType,
+        RequireFields<SubscriptionBusStopPredictionsArgs, 'direction' | 'routeId' | 'stopCode'>
+    >;
     busesByRoute?: SubscriptionResolver<
         Array<ResolversTypes['Bus']>,
         'busesByRoute',
@@ -362,6 +417,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
     AcTransitBusStop?: AcTransitBusStopResolvers<ContextType>;
     Bus?: BusResolvers<ContextType>;
     BusStop?: BusStopResolvers<ContextType>;
+    BusStopPrediction?: BusStopPredictionResolvers<ContextType>;
     DateTime?: GraphQLScalarType;
     Position?: PositionResolvers<ContextType>;
     Query?: QueryResolvers<ContextType>;
@@ -452,4 +508,33 @@ export type GetBusStopProfileLongitudeQuery = {
         __typename?: 'ACTransitSystem';
         busStop: { __typename?: 'AcTransitBusStop'; position: { __typename?: 'Position'; longitude: number } } | null;
     } | null;
+};
+
+export type BusStopPredictionsSubscriptionSubscriptionVariables = Exact<{
+    routeId: Scalars['String']['input'];
+    stopCode: Scalars['String']['input'];
+    direction: BusDirection;
+}>;
+
+export type BusStopPredictionsSubscriptionSubscription = {
+    __typename?: 'Subscription';
+    busStopPredictions: Array<{
+        __typename?: 'BusStopPrediction';
+        vehicleId: string;
+        tripId: string;
+        arrivalTime: Date;
+        minutesAway: number;
+        isOutbound: boolean;
+    }>;
+};
+
+export type BusStopPredictionsSubscriptionVariables = Exact<{
+    routeId: Scalars['String']['input'];
+    stopCode: Scalars['String']['input'];
+    direction: BusDirection;
+}>;
+
+export type BusStopPredictionsSubscription = {
+    __typename?: 'Subscription';
+    busStopPredictions: Array<{ __typename?: 'BusStopPrediction'; vehicleId: string }>;
 };

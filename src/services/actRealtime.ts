@@ -167,7 +167,8 @@ class ACTRealtimeService {
      * @returns Object mapping stop_code to predictions response
      */
     private async fetchBusStopPredictionsRaw(
-        stopCodes: string[]
+        stopCodes: string[],
+        routeId?: string
     ): Promise<Record<string, Array<BusStopPredictionRaw>>> {
         invariant(
             stopCodes.length > 0 && stopCodes.length <= this.maxBusStopsPerRequest,
@@ -180,7 +181,7 @@ class ACTRealtimeService {
         // Note: AC Transit confusingly calls stop_code "stpid"
         const response = await this.fetchWithUrlParams({
             url,
-            params: { stpid: stopCodes.join(','), token: this.token },
+            params: { stpid: stopCodes.join(','), ...(routeId ? { rt: routeId } : {}), token: this.token },
             requestInit: {
                 headers: {
                     Accept: 'application/json',
@@ -224,7 +225,10 @@ class ACTRealtimeService {
      * @param stopCodes Array of 5-digit stop codes
      * @returns Object mapping stop_code to predictions response
      */
-    async fetchBusStopPredictions(stopCodes: string[]): Promise<Record<string, Array<BusStopPredictionRaw>>> {
+    async fetchBusStopPredictions(
+        stopCodes: string[],
+        routeId?: string
+    ): Promise<Record<string, Array<BusStopPredictionRaw>>> {
         const predictionsMap: Record<string, Array<BusStopPredictionRaw>> = {};
 
         if (stopCodes.length === 0) {
@@ -239,11 +243,11 @@ class ACTRealtimeService {
 
         // Process chunks in parallel with caching
         const promises = chunks.map(async (chunk) => {
-            const cacheKey = `bus-stop-predictions:${chunk.sort().join(',')}`;
+            const cacheKey = `bus-stop-predictions:${routeId ?? 'all'}:${chunk.sort().join(',')}`;
 
             const chunkMap = await this.getCachedOrFetch(
                 cacheKey,
-                () => this.fetchBusStopPredictionsRaw(chunk),
+                () => this.fetchBusStopPredictionsRaw(chunk, routeId),
                 this.cacheTtl.predictions
             );
 

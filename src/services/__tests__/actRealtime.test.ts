@@ -237,6 +237,33 @@ describe('ACT Realtime Service', () => {
             expect(mockFetch).toHaveBeenCalledTimes(1);
             expect(response).toEqual({});
         });
+
+        it('includes routeId in params when provided', async () => {
+            const stopIds = ['50373', '50374'];
+            const routeId = '51B';
+            const mockPredictions = stopIds.map((id) => createMockBusStopPredictionRaw({ stpid: id }));
+            const mockResponse = createMockBusStopPredictionsResponse({
+                'bustime-response': {
+                    prd: mockPredictions,
+                },
+            });
+            const mockFetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: vi.fn().mockResolvedValue(mockResponse),
+            });
+            const service = createACTRealtimeService({
+                ...defaultDependencies,
+                fetchWithUrlParams: mockFetch,
+            });
+
+            await service.fetchBusStopPredictions(stopIds, routeId);
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            const firstCallArg = mockFetch.mock.calls[0][0];
+            expect(firstCallArg).toMatchObject({
+                params: expect.objectContaining({ rt: routeId, stpid: stopIds.join(',') }),
+            });
+        });
     });
 
     describe('fetch system time', () => {
