@@ -10,11 +10,9 @@ export type PositionParent = {
 };
 
 export function createPositionParent(busStopData: Partial<PositionParent>): PositionParent {
-    /* v8 ignore start - Practically unreachable by query */
-    if (busStopData.latitude === undefined || busStopData.longitude === undefined) {
+    if (!(busStopData.latitude && busStopData.longitude)) {
         throw new Error('Position latitude and longitude are required to create PositionParent');
     }
-    /* v8 ignore stop */
 
     return {
         __typename: 'Position',

@@ -10,11 +10,10 @@ export type AcTransitBusStopParent = {
 };
 
 export function createBusStopParent(busStopData: Partial<AcTransitBusStopParent>): AcTransitBusStopParent {
-    /* v8 ignore start - Practically unreachable by query */
     if (!busStopData.code) {
         throw new Error('BusStop code is required to create BusStopParent');
     }
-    /* v8 ignore stop */
+
     return {
         __typename: 'AcTransitBusStop',
         code: busStopData.code,

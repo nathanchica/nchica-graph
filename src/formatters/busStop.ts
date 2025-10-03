@@ -1,4 +1,4 @@
-import { type PositionParent, createPositionParent } from '../schema/root/root.resolver.js';
+import { type PositionParent } from '../schema/root/root.resolver.js';
 import type { BusStopProfileRaw } from '../services/actRealtime.schemas.js';
 
 /**
@@ -24,9 +24,9 @@ export function createBusStopProfile(rawBusStop: BusStopProfileRaw): BusStopProf
         id: rawBusStop.geoid,
         code: rawBusStop.stpid,
         name: rawBusStop.stpnm,
-        position: createPositionParent({
+        position: {
             latitude: rawBusStop.lat,
             longitude: rawBusStop.lon,
-        }),
+        } as PositionParent,
     };
 }
