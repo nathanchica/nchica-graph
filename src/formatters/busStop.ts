@@ -1,3 +1,5 @@
+import { type Position } from './busPosition.js';
+
 import type { BusStopProfileRaw } from '../services/actRealtime.schemas.js';
 
 /**
@@ -6,9 +8,8 @@ import type { BusStopProfileRaw } from '../services/actRealtime.schemas.js';
 export type BusStopProfile = {
     id: string; // GTFS stop_id (geoid from API)
     code: string; // 5-digit stop code (stpid from API)
-    latitude: number; // Stop latitude
-    longitude: number; // Stop longitude
     name: string; // Stop name
+    position: Position;
 };
 
 export function createBusStopProfile(rawBusStop: BusStopProfileRaw): BusStopProfile {
@@ -23,8 +24,10 @@ export function createBusStopProfile(rawBusStop: BusStopProfileRaw): BusStopProf
     return {
         id: rawBusStop.geoid,
         code: rawBusStop.stpid,
-        latitude: rawBusStop.lat,
-        longitude: rawBusStop.lon,
         name: rawBusStop.stpnm,
+        position: {
+            latitude: rawBusStop.lat,
+            longitude: rawBusStop.lon,
+        },
     };
 }

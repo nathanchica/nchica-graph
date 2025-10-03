@@ -18,8 +18,10 @@ describe('createBusStopProfile', () => {
             id: 'GTFS_STOP_123',
             code: '50373',
             name: 'Main St & 1st Ave',
-            latitude: 37.811845,
-            longitude: -122.267098,
+            position: {
+                latitude: 37.811845,
+                longitude: -122.267098,
+            },
         });
     });
 

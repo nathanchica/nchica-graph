@@ -1,24 +1,26 @@
+import invariant from 'tiny-invariant';
+
+import type { BusStopProfile } from '../../formatters/busStop.js';
 import type { Resolvers } from '../../generated/graphql.js';
+import { createPositionParent, type PositionParent } from '../root/root.resolver.js';
 
 export type AcTransitBusStopParent = {
     __typename: 'AcTransitBusStop';
     id?: string;
     code: string;
     name?: string;
-    latitude?: number;
-    longitude?: number;
+    position?: PositionParent;
 };
 
-export function createBusStopParent(busStopData: Partial<AcTransitBusStopParent>): AcTransitBusStopParent {
-    /* v8 ignore start - Practically unreachable by query */
-    if (!busStopData.code) {
-        throw new Error('BusStop code is required to create BusStopParent');
-    }
-    /* v8 ignore stop */
+export function createBusStopParent(busStopData: Partial<BusStopProfile>): AcTransitBusStopParent {
+    invariant(busStopData.code, 'BusStop code is required to create BusStopParent');
+
     return {
         __typename: 'AcTransitBusStop',
         code: busStopData.code,
-        ...busStopData,
+        id: busStopData.id,
+        name: busStopData.name,
+        position: busStopData.position ? createPositionParent(busStopData.position) : undefined,
     };
 }
 

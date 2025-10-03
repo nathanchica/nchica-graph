@@ -19,6 +19,7 @@ const config: CodegenConfig = {
                 mappers: {
                     AcTransitBusStop: '../schema/busStop/busStop.resolver.js#AcTransitBusStopParent',
                     ACTransitSystem: '../schema/transitSystem/transitSystem.resolver.js#ACTransitSystemParent',
+                    Bus: '../schema/bus/bus.resolver.js#BusParent',
                 },
             },
         },

@@ -1,6 +1,7 @@
 import type { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
 import type { AcTransitBusStopParent } from '../schema/busStop/busStop.resolver.js';
 import type { ACTransitSystemParent } from '../schema/transitSystem/transitSystem.resolver.js';
+import type { BusParent } from '../schema/bus/bus.resolver.js';
 import type { GraphQLContext } from '../context.js';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
@@ -30,6 +31,8 @@ export type AcTransitSystem = TransitSystem & {
     busStop: Maybe<AcTransitBusStop>;
     /** List of all bus stops in the AC Transit system */
     busStops: Array<AcTransitBusStop>;
+    /** List of all buses in the AC Transit system */
+    busesByRoute: Array<Bus>;
     /** Displayable name of the transit system */
     name: Scalars['String']['output'];
 };
@@ -44,6 +47,11 @@ export type AcTransitSystemBusStopsArgs = {
     routeId: Scalars['String']['input'];
 };
 
+/** AC Transit system information and lookups */
+export type AcTransitSystemBusesByRouteArgs = {
+    routeId: Scalars['String']['input'];
+};
+
 /** Represents a bus stop in the AC Transit system */
 export type AcTransitBusStop = BusStop & {
     __typename?: 'AcTransitBusStop';
@@ -54,24 +62,42 @@ export type AcTransitBusStop = BusStop & {
     code: Scalars['String']['output'];
     /** GTFS stop identifier (sequential ID used in GTFS feeds, e.g., "1234") */
     id: Scalars['String']['output'];
-    /** Latitude of the stop location */
-    latitude: Scalars['Float']['output'];
-    /** Longitude of the stop location */
-    longitude: Scalars['Float']['output'];
     /** Human-readable stop name */
     name: Scalars['String']['output'];
+    /** Geographic position of the stop */
+    position: Position;
+};
+
+/** Represents a bus in any transit system */
+export type Bus = {
+    __typename?: 'Bus';
+    /** Current position and movement details */
+    position: Position;
+    /** GTFS vehicle identifier (unique ID used in GTFS feeds, e.g., "1234") */
+    vehicleId: Scalars['String']['output'];
 };
 
 /** Represents a bus stop in any transit system */
 export type BusStop = {
     /** GTFS stop identifier (sequential ID used in GTFS feeds, e.g., "1234") */
     id: Scalars['String']['output'];
-    /** Latitude of the stop location */
-    latitude: Scalars['Float']['output'];
-    /** Longitude of the stop location */
-    longitude: Scalars['Float']['output'];
     /** Human-readable stop name */
     name: Scalars['String']['output'];
+    /** Geographic position of the stop */
+    position: Position;
+};
+
+/** Represents a geographic position and direction (if movable) */
+export type Position = {
+    __typename?: 'Position';
+    /** Compass heading in degrees (0-360). Null if not movable. */
+    heading: Maybe<Scalars['Float']['output']>;
+    /** Current latitude position */
+    latitude: Scalars['Float']['output'];
+    /** Current longitude position */
+    longitude: Scalars['Float']['output'];
+    /** Current speed in miles per hour. Null if not movable. */
+    speed: Maybe<Scalars['Float']['output']>;
 };
 
 /** Root query type */
@@ -202,9 +228,11 @@ export type ResolversTypes = {
     ACTransitSystem: ResolverTypeWrapper<ACTransitSystemParent>;
     AcTransitBusStop: ResolverTypeWrapper<AcTransitBusStopParent>;
     Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+    Bus: ResolverTypeWrapper<BusParent>;
     BusStop: ResolverTypeWrapper<ResolversInterfaceTypes<ResolversTypes>['BusStop']>;
     DateTime: ResolverTypeWrapper<Scalars['DateTime']['output']>;
     Float: ResolverTypeWrapper<Scalars['Float']['output']>;
+    Position: ResolverTypeWrapper<Position>;
     Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
     String: ResolverTypeWrapper<Scalars['String']['output']>;
     Subscription: ResolverTypeWrapper<Record<PropertyKey, never>>;
@@ -216,9 +244,11 @@ export type ResolversParentTypes = {
     ACTransitSystem: ACTransitSystemParent;
     AcTransitBusStop: AcTransitBusStopParent;
     Boolean: Scalars['Boolean']['output'];
+    Bus: BusParent;
     BusStop: ResolversInterfaceTypes<ResolversParentTypes>['BusStop'];
     DateTime: Scalars['DateTime']['output'];
     Float: Scalars['Float']['output'];
+    Position: Position;
     Query: Record<PropertyKey, never>;
     String: Scalars['String']['output'];
     Subscription: Record<PropertyKey, never>;
@@ -242,6 +272,12 @@ export type AcTransitSystemResolvers<
         ContextType,
         RequireFields<AcTransitSystemBusStopsArgs, 'routeId'>
     >;
+    busesByRoute?: Resolver<
+        Array<ResolversTypes['Bus']>,
+        ParentType,
+        ContextType,
+        RequireFields<AcTransitSystemBusesByRouteArgs, 'routeId'>
+    >;
     name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
     __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
@@ -252,10 +288,17 @@ export type AcTransitBusStopResolvers<
 > = {
     code?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
     id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-    latitude?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-    longitude?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
     name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+    position?: Resolver<ResolversTypes['Position'], ParentType, ContextType>;
     __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type BusResolvers<
+    ContextType = GraphQLContext,
+    ParentType extends ResolversParentTypes['Bus'] = ResolversParentTypes['Bus'],
+> = {
+    position?: Resolver<ResolversTypes['Position'], ParentType, ContextType>;
+    vehicleId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
 
 export type BusStopResolvers<
@@ -268,6 +311,16 @@ export type BusStopResolvers<
 export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['DateTime'], any> {
     name: 'DateTime';
 }
+
+export type PositionResolvers<
+    ContextType = GraphQLContext,
+    ParentType extends ResolversParentTypes['Position'] = ResolversParentTypes['Position'],
+> = {
+    heading?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+    latitude?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+    longitude?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+    speed?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+};
 
 export type QueryResolvers<
     ContextType = GraphQLContext,
@@ -306,8 +359,10 @@ export type TransitSystemResolvers<
 export type Resolvers<ContextType = GraphQLContext> = {
     ACTransitSystem?: AcTransitSystemResolvers<ContextType>;
     AcTransitBusStop?: AcTransitBusStopResolvers<ContextType>;
+    Bus?: BusResolvers<ContextType>;
     BusStop?: BusStopResolvers<ContextType>;
     DateTime?: GraphQLScalarType;
+    Position?: PositionResolvers<ContextType>;
     Query?: QueryResolvers<ContextType>;
     Subscription?: SubscriptionResolvers<ContextType>;
     TransitSystem?: TransitSystemResolvers<ContextType>;
@@ -326,8 +381,7 @@ export type GetBusStopProfileQuery = {
             id: string;
             code: string;
             name: string;
-            latitude: number;
-            longitude: number;
+            position: { __typename?: 'Position'; latitude: number; longitude: number };
         } | null;
     } | null;
 };
@@ -364,7 +418,7 @@ export type GetBusStopProfileLatitudeQuery = {
     __typename?: 'Query';
     getTransitSystem: {
         __typename?: 'ACTransitSystem';
-        busStop: { __typename?: 'AcTransitBusStop'; latitude: number } | null;
+        busStop: { __typename?: 'AcTransitBusStop'; position: { __typename?: 'Position'; latitude: number } } | null;
     } | null;
 };
 
@@ -376,6 +430,6 @@ export type GetBusStopProfileLongitudeQuery = {
     __typename?: 'Query';
     getTransitSystem: {
         __typename?: 'ACTransitSystem';
-        busStop: { __typename?: 'AcTransitBusStop'; longitude: number } | null;
+        busStop: { __typename?: 'AcTransitBusStop'; position: { __typename?: 'Position'; longitude: number } } | null;
     } | null;
 };
