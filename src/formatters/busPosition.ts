@@ -19,17 +19,12 @@ function parseFiniteNumber(value: unknown): number | null {
         return null;
     }
 
-    if (typeof value === 'string') {
-        const trimmed = value.trim();
-        if (trimmed.length === 0) {
-            return null;
-        }
-
-        const parsedString = Number(trimmed);
-        return Number.isFinite(parsedString) ? parsedString : null;
+    const valueToParse = typeof value === 'string' ? value.trim() : value;
+    if (valueToParse === '') {
+        return null;
     }
 
-    const parsedNumber = Number(value);
+    const parsedNumber = Number(valueToParse);
     return Number.isFinite(parsedNumber) ? parsedNumber : null;
 }
 
