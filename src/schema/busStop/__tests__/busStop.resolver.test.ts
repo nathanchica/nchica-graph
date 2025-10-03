@@ -11,23 +11,34 @@ import { createBusStopParent } from '../busStop.resolver.js';
 
 describe('createBusStopParent', () => {
     it.each([
-        { input: { code: '12345' } },
-        { input: { code: '12345', id: 'GTFS_STOP_123' } },
-        { input: { code: '12345', name: 'Downtown Stop' } },
-        { input: { code: '12345', position: { latitude: 37.7749, longitude: -122.4194 } } },
+        { scenario: 'only code', input: { code: '12345' } },
+        { scenario: 'with id', input: { code: '12345', id: 'GTFS_STOP_123' } },
+        { scenario: 'with name', input: { code: '12345', name: 'Downtown Stop' } },
         {
+            scenario: 'with position',
+            input: { code: '12345', position: { __typename: 'Position', latitude: 37.7749, longitude: -122.4194 } },
+        },
+        {
+            scenario: 'with all fields',
             input: {
                 code: '54321',
                 id: 'GTFS_STOP_987',
                 name: 'Uptown',
-                position: { latitude: 34.0522, longitude: -118.2437, heading: 90, speed: 30 },
+                position: { __typename: 'Position', latitude: 34.0522, longitude: -118.2437, heading: 90, speed: 30 },
             },
         },
-    ])('creates AcTransitBusStopParent', ({ input }) => {
+    ])('creates AcTransitBusStopParent $scenario', ({ input }) => {
         const busStop = createBusStopParent(input);
         expect(busStop).toEqual({
             __typename: 'AcTransitBusStop',
             ...input,
+            ...(input.position !== undefined && {
+                position: {
+                    ...input.position,
+                    heading: input.position?.heading ?? null,
+                    speed: input.position?.speed ?? null,
+                },
+            }),
         });
     });
 

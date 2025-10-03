@@ -87,7 +87,7 @@ describe('createBusPositionsFromActRealtime', () => {
     it('filters out entries with non-finite numeric fields', () => {
         const bad1 = createMockBusPositionRaw({
             vid: 'V-NAN',
-            hdg: 'NaN',
+            lat: 'NaN',
             spd: 10,
         });
         const bad2 = createMockBusPositionRaw({
