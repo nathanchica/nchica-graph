@@ -47,29 +47,6 @@ describe('busResolvers', () => {
     });
 
     describe('Subscription.busesByRoute', () => {
-        it('returns GraphQL error when routeId is blank', async () => {
-            const query = /* GraphQL */ `
-                subscription BusesByRoute($routeId: String!) {
-                    busesByRoute(routeId: $routeId) {
-                        vehicleId
-                        position {
-                            latitude
-                            longitude
-                            heading
-                            speed
-                        }
-                    }
-                }
-            `;
-
-            const result = await client.request(query, { routeId: ' ' });
-            expect(result.data).toBeUndefined();
-            expect(result.errors).toBeDefined();
-            const [error] = result.errors as Array<{ message: string; extensions?: Record<string, unknown> }>;
-            expect(error.message).toMatch(/routeId argument is required/);
-            expect(error.extensions).toMatchObject({ code: 'BAD_REQUEST' });
-        });
-
         it('emits multiple events over time (initial + 2 loops)', async () => {
             const query = /* GraphQL */ `
                 subscription BusesByRoute($routeId: String!) {
@@ -184,6 +161,29 @@ describe('busResolvers', () => {
             expect(fetchBusPositions).toHaveBeenNthCalledWith(3, routeId);
 
             vi.useRealTimers();
+        });
+
+        it('returns GraphQL error when routeId is blank', async () => {
+            const query = /* GraphQL */ `
+                subscription BusesByRoute($routeId: String!) {
+                    busesByRoute(routeId: $routeId) {
+                        vehicleId
+                        position {
+                            latitude
+                            longitude
+                            heading
+                            speed
+                        }
+                    }
+                }
+            `;
+
+            const result = await client.request(query, { routeId: ' ' });
+            expect(result.data).toBeUndefined();
+            expect(result.errors).toBeDefined();
+            const [error] = result.errors as Array<{ message: string; extensions?: Record<string, unknown> }>;
+            expect(error.message).toMatch(/routeId argument is required/);
+            expect(error.extensions).toMatchObject({ code: 'BAD_REQUEST' });
         });
     });
 });

@@ -107,20 +107,34 @@ export const createTestClient = (): TestGraphQLClient => {
         variables?: Record<string, unknown>,
         contextOverrides?: Partial<GraphQLContext>
     ): Promise<GraphQLExecutionResult<TData>> => {
-        const { schema, execute, subscribe, document, contextValue, operationType } = await prepareOperation(
-            operation,
-            contextOverrides
-        );
+        let prepared;
+        try {
+            prepared = await prepareOperation(operation, contextOverrides);
+        } catch (error) {
+            if (isGraphQLError(error)) {
+                return normalizeResult({ errors: [error] } as GraphQLExecutionResult<TData>);
+            }
+            throw error;
+        }
+        const { schema, execute, subscribe, document, contextValue, operationType } = prepared;
 
         const variableValues = variables ?? undefined;
 
         if (operationType === 'subscription') {
-            const result = await subscribe({
-                schema,
-                document,
-                variableValues,
-                contextValue,
-            });
+            let result: unknown;
+            try {
+                result = await subscribe({
+                    schema,
+                    document,
+                    variableValues,
+                    contextValue,
+                });
+            } catch (error) {
+                if (isGraphQLError(error)) {
+                    return normalizeResult({ errors: [error] } as GraphQLExecutionResult<TData>);
+                }
+                throw error;
+            }
 
             if (!isAsyncIterable<GraphQLExecutionResult<TData>>(result)) {
                 return normalizeResult(result as GraphQLExecutionResult<TData>);
@@ -148,12 +162,20 @@ export const createTestClient = (): TestGraphQLClient => {
             }
         }
 
-        const executionResult = await execute({
-            schema,
-            document,
-            variableValues,
-            contextValue,
-        });
+        let executionResult;
+        try {
+            executionResult = await execute({
+                schema,
+                document,
+                variableValues,
+                contextValue,
+            });
+        } catch (error) {
+            if (isGraphQLError(error)) {
+                return normalizeResult({ errors: [error] } as GraphQLExecutionResult<TData>);
+            }
+            throw error;
+        }
 
         return normalizeResult(executionResult as GraphQLExecutionResult<TData>);
     };
@@ -173,12 +195,20 @@ export const createTestClient = (): TestGraphQLClient => {
             throw new Error('collectSubscription can only be used with subscription operations');
         }
 
-        const result = await subscribe({
-            schema,
-            document,
-            variableValues: variables ?? undefined,
-            contextValue,
-        });
+        let result: unknown;
+        try {
+            result = await subscribe({
+                schema,
+                document,
+                variableValues: variables ?? undefined,
+                contextValue,
+            });
+        } catch (error) {
+            if (isGraphQLError(error)) {
+                return [normalizeResult({ errors: [error] } as GraphQLExecutionResult<TData>)];
+            }
+            throw error;
+        }
 
         const events: GraphQLSubscriptionResults<TData> = [];
 
@@ -192,7 +222,17 @@ export const createTestClient = (): TestGraphQLClient => {
 
         try {
             while (events.length < take) {
-                const { value, done } = await iterator.next();
+                let next;
+                try {
+                    next = await iterator.next();
+                } catch (error) {
+                    if (isGraphQLError(error)) {
+                        events.push(normalizeResult({ errors: [error] } as GraphQLExecutionResult<TData>));
+                        break;
+                    }
+                    throw error;
+                }
+                const { value, done } = next;
                 if (done) {
                     break;
                 }
