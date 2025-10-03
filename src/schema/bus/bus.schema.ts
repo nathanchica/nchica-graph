@@ -14,7 +14,7 @@ export const busDefs = /* GraphQL */ `
         position: Position!
     }
 
-    extend type ACTransitSystem {
+    extend type Subscription {
         """
         List of all buses in the AC Transit system
         """

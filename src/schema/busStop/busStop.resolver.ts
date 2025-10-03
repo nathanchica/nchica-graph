@@ -37,7 +37,6 @@ export const busStopResolvers: Resolvers = {
     },
     ACTransitSystem: {
         busStop: async (_parent, args, { loaders }) => {
-            // check if bus stop exists
             const busStopProfile = await loaders.busStop.byCode.load(args.busStopCode);
             return busStopProfile ? createBusStopParent(busStopProfile) : null;
         },
