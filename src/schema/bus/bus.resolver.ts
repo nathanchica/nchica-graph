@@ -1,7 +1,7 @@
 import invariant from 'tiny-invariant';
 
-import type { GraphQLContext } from '../../context.js';
-import type { PositionParent } from '../root/root.resolver.js';
+import type { Resolvers } from '../../generated/graphql.js';
+import { type PositionParent, createPositionParent } from '../root/root.resolver.js';
 
 export type BusParent = {
     __typename: 'Bus';
@@ -18,14 +18,18 @@ export function createBusParent(data: Partial<BusParent> = {}): BusParent {
     };
 }
 
-export const busResolvers = {
-    Bus: {
-        position: (parent: BusParent, _args: unknown, _ctx: GraphQLContext) => parent.position,
-    },
+export const busResolvers: Resolvers = {
     ACTransitSystem: {
-        busesByRoute: () => {
-            // TODO: needs service method and loader to fetch all buses of a given route
-            throw new Error('Not yet implemented');
+        busesByRoute: async (_parent, args, { loaders }) => {
+            const busPositions = await loaders.bus.byRoute.load(args.routeId);
+            return busPositions
+                .filter((busPosition) => Boolean(busPosition))
+                .map((busPosition) =>
+                    createBusParent({
+                        vehicleId: busPosition.vehicleId,
+                        position: createPositionParent(busPosition.position),
+                    })
+                );
         },
     },
 };
