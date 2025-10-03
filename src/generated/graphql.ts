@@ -369,6 +369,25 @@ export type Resolvers<ContextType = GraphQLContext> = {
     TransitSystem?: TransitSystemResolvers<ContextType>;
 };
 
+export type BusesByRouteSubscriptionVariables = Exact<{
+    routeId: Scalars['String']['input'];
+}>;
+
+export type BusesByRouteSubscription = {
+    __typename?: 'Subscription';
+    busesByRoute: Array<{
+        __typename?: 'Bus';
+        vehicleId: string;
+        position: {
+            __typename?: 'Position';
+            latitude: number;
+            longitude: number;
+            heading: number | null;
+            speed: number | null;
+        };
+    }>;
+};
+
 export type GetBusStopProfileQueryVariables = Exact<{
     busStopCode: Scalars['String']['input'];
 }>;

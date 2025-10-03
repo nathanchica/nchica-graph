@@ -16,8 +16,8 @@ describe('createPositionParent', () => {
                 __typename: 'Position',
                 latitude: input.latitude,
                 longitude: input.longitude,
-                heading: input.heading ?? undefined,
-                speed: input.speed ?? undefined,
+                heading: input.heading ?? null,
+                speed: input.speed ?? null,
             });
         }
     );
