@@ -509,3 +509,32 @@ export type GetBusStopProfileLongitudeQuery = {
         busStop: { __typename?: 'AcTransitBusStop'; position: { __typename?: 'Position'; longitude: number } } | null;
     } | null;
 };
+
+export type BusStopPredictionsSubscriptionSubscriptionVariables = Exact<{
+    routeId: Scalars['String']['input'];
+    stopCode: Scalars['String']['input'];
+    direction: BusDirection;
+}>;
+
+export type BusStopPredictionsSubscriptionSubscription = {
+    __typename?: 'Subscription';
+    busStopPredictions: Array<{
+        __typename?: 'BusStopPrediction';
+        vehicleId: string;
+        tripId: string;
+        arrivalTime: Date;
+        minutesAway: number;
+        isOutbound: boolean;
+    }>;
+};
+
+export type BusStopPredictionsSubscriptionVariables = Exact<{
+    routeId: Scalars['String']['input'];
+    stopCode: Scalars['String']['input'];
+    direction: BusDirection;
+}>;
+
+export type BusStopPredictionsSubscription = {
+    __typename?: 'Subscription';
+    busStopPredictions: Array<{ __typename?: 'BusStopPrediction'; vehicleId: string }>;
+};

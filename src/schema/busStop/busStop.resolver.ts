@@ -1,3 +1,4 @@
+import { GraphQLError } from 'graphql';
 import invariant from 'tiny-invariant';
 
 import type { BusStopProfile } from '../../formatters/busStop.js';
@@ -43,6 +44,38 @@ export const busStopResolvers: Resolvers = {
         busStops: () => {
             // TODO: needs service method and loader to fetch all stops of a given route
             throw new Error('Not yet implemented');
+        },
+    },
+    Subscription: {
+        busStopPredictions: {
+            subscribe: async function* (_parent, args, context) {
+                const routeId = args.routeId.trim();
+                const stopCode = args.stopCode.trim();
+                const direction = args.direction;
+
+                if (!routeId) {
+                    throw new GraphQLError('routeId argument is required', {
+                        extensions: { code: 'BAD_REQUEST' },
+                    });
+                }
+                if (!stopCode) {
+                    throw new GraphQLError('stopCode argument is required', {
+                        extensions: { code: 'BAD_REQUEST' },
+                    });
+                }
+
+                const key = { routeId, stopCode, direction } as const;
+
+                const initialPredictions = await context.loaders.busStop.predictions.clear(key).load(key);
+                yield { busStopPredictions: initialPredictions };
+
+                const intervalMs = context.env.AC_TRANSIT_POLLING_INTERVAL;
+                while (true) {
+                    const predictions = await context.loaders.busStop.predictions.clear(key).load(key);
+                    yield { busStopPredictions: predictions };
+                    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+                }
+            },
         },
     },
 };
