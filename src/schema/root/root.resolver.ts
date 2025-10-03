@@ -23,8 +23,8 @@ export function createPositionParent(busStopData: Partial<PositionParent>): Posi
         __typename: 'Position',
         latitude,
         longitude,
-        heading: busStopData.heading ?? null,
-        speed: busStopData.speed ?? null,
+        heading: busStopData.heading ?? undefined,
+        speed: busStopData.speed ?? undefined,
     };
 }
 
