@@ -66,4 +66,56 @@ export const busStopDefs = /* GraphQL */ `
             routeId: String!
         ): [AcTransitBusStop!]!
     }
+
+    """
+    Represents a predicted bus arrival at a stop
+    """
+    type BusStopPrediction {
+        """
+        Vehicle identifier for the approaching bus
+        """
+        vehicleId: String!
+
+        """
+        GTFS trip identifier
+        """
+        tripId: String!
+
+        """
+        Predicted arrival time
+        """
+        arrivalTime: DateTime!
+
+        """
+        Number of minutes until arrival
+        """
+        minutesAway: Int!
+
+        """
+        True if bus is heading outbound (away from downtown)
+        """
+        isOutbound: Boolean!
+    }
+
+    extend type Subscription {
+        """
+        Subscribe to real-time arrival predictions for a specific bus stop
+        """
+        busStopPredictions(
+            """
+            Route ID to filter by (e.g., "51B")
+            """
+            routeId: String!
+
+            """
+            Stop code to get predictions for (5-digit code from bus stop sign, e.g., "55555")
+            """
+            stopCode: String!
+
+            """
+            Direction to filter predictions (INBOUND towards Rockridge BART or OUTBOUND towards Berkeley Amtrak)
+            """
+            direction: BusDirection!
+        ): [BusStopPrediction!]!
+    }
 `;
