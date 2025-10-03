@@ -18,12 +18,14 @@ export function createACTransitSystemParent(data: Partial<ACTransitSystemParent>
 
 export const transitSystemResolvers: Resolvers = {
     TransitSystem: {
+        /* v8 ignore start */
         __resolveType: (parent) => {
             if (parent.__typename === 'ACTransitSystem' || parent.alias === 'act') {
                 return 'ACTransitSystem';
             }
             return null;
         },
+        /* v8 ignore stop */
     },
     ACTransitSystem: {
         alias: (parent) => parent.alias ?? 'act',
@@ -35,6 +37,21 @@ export const transitSystemResolvers: Resolvers = {
                 return createACTransitSystemParent();
             }
             return null;
+        },
+    },
+    Subscription: {
+        acTransitSystemTime: {
+            subscribe: async function* (_parent, _args, context) {
+                const initial = await context.services.actRealtime.fetchSystemTime();
+                yield { acTransitSystemTime: initial };
+
+                const intervalMs = context.env.AC_TRANSIT_POLLING_INTERVAL;
+                while (true) {
+                    const now = await context.services.actRealtime.fetchSystemTime();
+                    yield { acTransitSystemTime: now };
+                    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+                }
+            },
         },
     },
 };

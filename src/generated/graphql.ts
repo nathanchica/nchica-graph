@@ -538,3 +538,16 @@ export type BusStopPredictionsSubscription = {
     __typename?: 'Subscription';
     busStopPredictions: Array<{ __typename?: 'BusStopPrediction'; vehicleId: string }>;
 };
+
+export type GetTransitSystemQueryQueryVariables = Exact<{
+    alias: Scalars['String']['input'];
+}>;
+
+export type GetTransitSystemQueryQuery = {
+    __typename?: 'Query';
+    getTransitSystem: { __typename?: 'ACTransitSystem'; alias: string; name: string } | null;
+};
+
+export type ActSystemTimeSubscriptionVariables = Exact<{ [key: string]: never }>;
+
+export type ActSystemTimeSubscription = { __typename?: 'Subscription'; acTransitSystemTime: Date };
