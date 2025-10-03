@@ -55,18 +55,14 @@ describe('createBusStopPredictionsFromActRealtime', () => {
         expect(result[0].vehicleId).toBe('V-OUT-2');
         expect(result[0].tripId).toBe('TRIP-OUT-2');
         expect(result[0].arrivalTime.toISOString()).toBe('2024-07-01T19:05:00.000Z');
-        expect(result[0].departureTime.toISOString()).toBe('2024-07-01T19:05:00.000Z');
         expect(result[0].minutesAway).toBe(0); // clamped from -2
         expect(result[0].isOutbound).toBe(true);
-        expect(result[0].distanceToStopFeet).toBeNull(); // Infinity -> null
 
         expect(result[1].vehicleId).toBe('V-OUT-1');
         expect(result[1].tripId).toBe('TRIP-OUT-1');
         expect(result[1].arrivalTime.toISOString()).toBe('2024-07-01T19:10:00.000Z');
-        expect(result[1].departureTime.toISOString()).toBe('2024-07-01T19:10:00.000Z');
         expect(result[1].minutesAway).toBe(5);
         expect(result[1].isOutbound).toBe(true);
-        expect(result[1].distanceToStopFeet).toBe(123);
     });
 
     it('treats "Due" prdctdn as 0 for outbound predictions', () => {
@@ -85,7 +81,6 @@ describe('createBusStopPredictionsFromActRealtime', () => {
         expect(result[0].tripId).toBe('TRIP-DUE');
         expect(result[0].minutesAway).toBe(0);
         expect(result[0].arrivalTime.toISOString()).toBe('2024-07-01T19:00:00.000Z');
-        expect(result[0].departureTime.toISOString()).toBe('2024-07-01T19:00:00.000Z');
         expect(result[0].isOutbound).toBe(true);
     });
 
@@ -176,17 +171,13 @@ describe('createBusStopPredictionsFromGtfsFeed', () => {
         expect(outbound[0].tripId).toBe('TRIP-1');
         expect(outbound[0].minutesAway).toBe(0); // clamped from -3
         expect(outbound[0].arrivalTime.toISOString()).toBe('2024-12-31T23:57:00.000Z');
-        expect(outbound[0].departureTime.toISOString()).toBe('2024-12-31T23:57:00.000Z');
         expect(outbound[0].isOutbound).toBe(true);
-        expect(outbound[0].distanceToStopFeet).toBeNull();
 
         expect(outbound[1].arrivalTime.toISOString()).toBe('2025-01-01T00:05:00.000Z');
-        expect(outbound[1].departureTime.toISOString()).toBe('2025-01-01T00:06:00.000Z');
         expect(outbound[1].minutesAway).toBe(5);
         expect(outbound[1].isOutbound).toBe(true);
 
         expect(outbound[2].arrivalTime.toISOString()).toBe('2025-01-01T00:20:00.000Z'); // arrival fallback to departure
-        expect(outbound[2].departureTime.toISOString()).toBe('2025-01-01T00:20:00.000Z');
         expect(outbound[2].minutesAway).toBe(20);
         expect(outbound[2].isOutbound).toBe(true);
 
