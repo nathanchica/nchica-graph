@@ -131,10 +131,18 @@ export const createTestClient = (): TestGraphQLClient => {
             try {
                 const { value, done } = await iterator.next();
                 if (done || !value) {
-                    throw new Error('Subscription completed before yielding a payload');
+                    return normalizeResult({
+                        data: undefined,
+                        errors: [new Error('Subscription completed before yielding a payload')],
+                    } as GraphQLExecutionResult<TData>);
                 }
 
                 return normalizeResult(value as GraphQLExecutionResult<TData>);
+            } catch (error) {
+                if (isGraphQLError(error)) {
+                    return normalizeResult({ errors: [error] } as GraphQLExecutionResult<TData>);
+                }
+                throw error;
             } finally {
                 await iterator.return?.();
             }

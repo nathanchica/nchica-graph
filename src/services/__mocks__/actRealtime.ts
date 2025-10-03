@@ -16,7 +16,7 @@ export function createMockACTRealtimeService(overrides?: Partial<ACTRealtimeServ
         async fetchSystemTime(): Promise<Date> {
             return new Date(0);
         },
-        async fetchVehiclePositions(): Promise<BusPositionRaw[]> {
+        async fetchBusPositions(): Promise<BusPositionRaw[]> {
             return [];
         },
     };
